@@ -4,7 +4,6 @@ from snakemake.utils import R
 configfile: "config.json"
 
 PROJECT = config["project"] + "/"
-MOTHUR = config['mothur_path']
 
 # different config settings
 hpc_method = ["al","cl","sl"]
