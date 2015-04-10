@@ -7,7 +7,7 @@ PROJECT = config["project"] + "/"
 
 # different config settings
 hpc_method = ["al","cl","sl"]
-minsize = ["1","2"]
+minsize = ["2"]
 swarm_d = ["1","2","3"]
 
 # ["swarm_d" + d for d in swarm_d]
@@ -21,14 +21,14 @@ cluster_methods = ["usearch_smallmem", "usearch_cluster_fast", "uparse"] # + ["s
 #                   {project}/{prog}/{ds}.minsize{minsize}.swarm_d{d}.otus.swarm.fasta \
 # {project}/{prog}/{ds}.minsize{minsize}.swarm_d{d}.otus.otutable.txt \
 rule final:
-    input: expand("{project}/{prog}/{ds}.minsize{minsize}.uparse.fasta \
+    input: expand("{project}/fastqc_raw/{data}_R1_fastqc.zip \
+                   {project}/fastqc_pandaseq/{data}_fastqc.zip \
+                   {project}/{prog}/{ds}.minsize{minsize}.uparse.fasta \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.otutable.txt \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.nonchimeras.fasta \
                    {project}/{prog}/rdp/{project}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom \
-                   {project}/vsearch/sina/{ds}.minsize2.uparse.taxonomy.biom \
-                   {project}/vsearch/sina/{ds}.minsize2.uparse.sina.taxonomy".split(),data=config["data"],project=config['project'],prog=["vsearch","usearch"],ds=config['project'],minsize=minsize,cl=hpc_method,clmethod=cluster_methods,d=swarm_d) 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch","usearch"],ds=config['project'],minsize=minsize,cl=hpc_method,clmethod=cluster_methods,d=swarm_d) 
 
 rule unpack_and_rename:
     input:
@@ -44,6 +44,21 @@ rule unpack_and_rename:
         shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
         shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
 
+rule fastqc:
+    input:
+        forward="{project}/gunzip/{data}_R1.fastq",
+        reverse="{project}/gunzip/{data}_R2.fastq"
+    output:
+        zip="{project}/fastqc_raw/{data}_R1_fastqc.zip"
+    params:
+        dir="{project}/fastqc_raw",
+        adapters = config["adapters_fasta"]
+    log: "fastqc_raw.log"
+    threads: 2
+    run:
+        shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log}")
+        shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}")
+
 rule pandaseq:
     input:      
         forward="{project}/gunzip/{data}_R1.fastq",
@@ -54,12 +69,25 @@ rule pandaseq:
         overlap = config['pandaseq_overlap'],
         quality = config['pandaseq_quality'],
         minlength = config['pandaseq_minlength'],
-        maxlength = config['pandaseq_maxlength'],
-        forward_primer = config['forward_primer'],
-        reverse_primer = config['reverse_primer']
-    log: "pandaseq/{data}_pandaseq.stdout"
+        maxlength = config['pandaseq_maxlength']
+        #forward_primer = config['forward_primer'],
+        #reverse_primer = config['reverse_primer']
+    log: "{project}/pandaseq/{data}_pandaseq.stdout"
     threads: 8
-    shell: "source /data/tools/RDP_Assembler/1.0.3/env.sh; pandaseq -N -o {params.overlap} -e {params.quality} -F -d rbfkms -l {params.minlength} -L {params.maxlength} -p {params.forward_primer} -q {params.reverse_primer} -T {threads} -f {input.forward} -r {input.reverse}  1> {output.fastq} 2> {log}"
+    shell: "source /data/tools/RDP_Assembler/1.0.3/env.sh; pandaseq -N -o {params.overlap} -e {params.quality} -F -d rbfkms -l {params.minlength} -L {params.maxlength} -T {threads} -f {input.forward} -r {input.reverse}  1> {output.fastq} 2> {log}"
+
+
+rule fastqc_pandaseq:
+    input:
+        fastq = "{project}/pandaseq/{data}.fastq"
+    output: 
+        dir="{project}/pandaseq/{data}_fastqc/",zip="{project}/fastqc_pandaseq/{data}_fastqc.zip"
+    params:
+        dir="{project}/fastqc_pandaseq",
+        adapters = config["adapters_fasta"]
+    log: "fastqc.log"
+    threads: 8
+    shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.fastq} > {params.dir}/{log}"
 
 
 rule primer_matching:
@@ -79,17 +107,15 @@ rule primer_matching:
 
 rule fastq2fasta:
     input:
-        fastq = "{project}/pandaseq/{data}_noprimer.fastq"
+        fastq = "{project}/pandaseq/{data}.fastq"
     output:
-        fasta = "{project}/pandaseq/{data}_noprimer.fasta",
-        qual = "{project}/pandaseq/{data}_noprimer.qual"
-    log: "{project}/gunzip/{data}_fastqinfo.stdout"
-    shell: "{MOTHUR} '#fastq.info(fastq={input.fastq})' >> {log}"
+        fasta = "{project}/pandaseq/{data}.fasta"
+    shell: "fastq_to_fasta -i {input.fastq} -o {output.fasta}"
 
 # Combine per sample files to a single project file
 rule mergefiles:
     input:
-        fasta = expand(PROJECT + "pandaseq/{data}_noprimer.fasta", data=config["data"]),
+        fasta = expand(PROJECT + "pandaseq/{data}.fasta", data=config["data"]),
     output: 
         fasta="{project}/mergefiles/{project}.fasta"
     params:
@@ -202,7 +228,7 @@ rule swarm_biom:
     run:
         #shell("cut -f 1,3,4 {input} > {output.otutable}")
         shell("""awk  '{{delim = ""; for (i=1;i<=NF-1;i++) if (i!=2) {{printf delim "%s", $i; delim = "\\t"}}; printf "\\n"}}' < {input} > {output.otutable}""")
-        shell("source /home/NIOO/mattiash/.virtualenvs/qiime1.8/bin/activate; biom convert -i {output.otutable} -o {output.biom} --table-type='otu table'")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert -i {output.otutable} -o {output.biom} --table-type='otu table'")
 
 ########
 # VSEARCH PIPELINE
@@ -346,7 +372,7 @@ rule make_otu_names:
         "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.nonchimeras.fasta"
     output:
         "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.fasta"
-    shell: "python2.7 ~/src/uparse_scripts/fasta_number.py {input} OTU_ > {output}"
+    shell: "python2.7 /data/tools/usearch/uparse_scripts/fasta_number.py {input} OTU_ > {output}"
 
 rule mapping:
     input:
@@ -380,7 +406,7 @@ rule create_otutable:
         "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.uc"
     output:
         "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.otutable.txt"
-    shell: "python2.7 ~/src//uparse_scripts/uc2otutab.py {input} > {output}"
+    shell: "python2.7 /data/tools/usearch/uparse_scripts/uc2otutab.py {input} > {output}"
 
 # convert to biom file
 rule biom_otu:
@@ -388,7 +414,7 @@ rule biom_otu:
         "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.otutable.txt"
     output:
         "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom" 
-    shell: "source /home/NIOO/mattiash/.virtualenvs/qiime1.8/bin/activate; biom convert -i {input} -o {output} --table-type='otu table'"
+    shell: "/data/tools/qiime/1.9/qiime1.9/bin/biom convert -i {input} --to-json -o {output} --table-type='OTU table'"
 
 #
 # Taxonomy
@@ -426,7 +452,7 @@ rule rdp:
         rdp="{project}/rdp/{project}.swarm_d{d}.seeds.rdp",
         taxonomy="{project}/rdp/{project}.swarm_d{d}.seeds.rdp.taxonomy.txt"
     run:
-        shell("python2.7 ~/src/uparse_scripts/fasta_number.py {input} > {output.otus}") 
+        shell("python2.7 /data/tools/usearch/uparse_scripts/fasta_number.py {input} > {output.otus}") 
         shell("java -Xmx1g -jar /data/tools/rdp-classifier/2.10/classifier.jar classify -c 0.8 {output.otus} -f filterbyconf -o {output.rdp}")
         shell("""cat {output.rdp} | awk -F"\\t" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{gsub(" ","_",$0);gsub("\\"","",$0);print $1"\\t"$2";"$3";"$4";"$5";"$6";"$7}}' > {output.taxonomy}""")
 
@@ -469,8 +495,8 @@ rule biom_tax_rdp:
         biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
         otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
     run:
-        shell("source /home/NIOO/mattiash/.virtualenvs/qiime1.8/bin/activate; biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
-        shell("source /home/NIOO/mattiash/.virtualenvs/qiime1.8/bin/activate; biom convert -b --header-key=taxonomy -i {output.biom} -o {output.otutable}")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 
 rule biom_tax_sina:
     input:
@@ -480,8 +506,8 @@ rule biom_tax_sina:
         biom="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
         otutable="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
     run:
-        shell("source /home/NIOO/mattiash/.virtualenvs/qiime1.8/bin/activate; biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
-        shell("source /home/NIOO/mattiash/.virtualenvs/qiime1.8/bin/activate; biom convert -b --header-key=taxonomy -i {output.biom} -o {output.otutable}")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 
 
 rule biom_tax_swarm:
@@ -492,8 +518,8 @@ rule biom_tax_swarm:
         biom="{project}/rdp/{project}.swarm_d{d}.taxonomy.biom",
         otutable="{project}/rdp/{project}.swarm_d{d}.taxonomy.otutable.txt"
     run:
-        shell("source /home/NIOO/mattiash/.virtualenvs/qiime1.8/bin/activate; biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
-        shell("source /home/NIOO/mattiash/.virtualenvs/qiime1.8/bin/activate; biom convert -b --header-key=taxonomy -i {output.biom} -o {output.otutable}")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert -b --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 
 
            
