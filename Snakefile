@@ -1,137 +1,4 @@
-
-from snakemake.utils import R
-
-configfile: "config.json"
-
-PROJECT = config["project"] + "/"
-
-# different config settings
-hpc_method = ["al","cl","sl"]
-minsize = ["2"]
-swarm_d = ["1","2","3"]
-
-# ["swarm_d" + d for d in swarm_d]
-cluster_methods = ["usearch_smallmem", "usearch_cluster_fast", "uparse"] # + ["swarm_d" + d for d in swarm_d]
-"""
-{project}/{prog}/{ds}.minsize{minsize}.usearch_smallmem.fasta \
-                   {project}/{prog}/{ds}.minsize{minsize}.usearch.cluster_fast.fasta \
-                   {project}/{prog}/{ds}.minsize{minsize}.uparse.fasta \
-"""
-# project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.otutable.txt
-#                   {project}/{prog}/{ds}.minsize{minsize}.swarm_d{d}.otus.swarm.fasta \
-# {project}/{prog}/{ds}.minsize{minsize}.swarm_d{d}.otus.otutable.txt \
-rule final:
-    input: expand("{project}/fastqc_raw/{data}_R1_fastqc.zip \
-                   {project}/fastqc_pandaseq/{data}_fastqc.zip \
-                   {project}/{prog}/{ds}.minsize{minsize}.uparse.fasta \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.otutable.txt \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.nonchimeras.fasta \
-                   {project}/{prog}/rdp/{project}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch","usearch"],ds=config['project'],minsize=minsize,cl=hpc_method,clmethod=cluster_methods,d=swarm_d) 
-
-rule unpack_and_rename:
-    input:
-        forward = lambda wildcards: config["basedir"] + config["data"][wildcards.data]['forward'],
-        reverse = lambda wildcards: config["basedir"] + config["data"][wildcards.data]['reverse']
-    output:
-        forward="{project}/gunzip/{data}_R1.fastq",
-        reverse="{project}/gunzip/{data}_R2.fastq"
-    params:
-        prefix="{data}"
-    threads: 2
-    run: 
-        shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
-        shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
-
-rule fastqc:
-    input:
-        forward="{project}/gunzip/{data}_R1.fastq",
-        reverse="{project}/gunzip/{data}_R2.fastq"
-    output:
-        zip="{project}/fastqc_raw/{data}_R1_fastqc.zip"
-    params:
-        dir="{project}/fastqc_raw",
-        adapters = config["adapters_fasta"]
-    log: "fastqc_raw.log"
-    threads: 2
-    run:
-        shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log}")
-        shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}")
-
-rule pandaseq:
-    input:      
-        forward="{project}/gunzip/{data}_R1.fastq",
-        reverse="{project}/gunzip/{data}_R2.fastq"
-    output:
-        fastq = "{project}/pandaseq/{data}.fastq"
-    params:
-        overlap = config['pandaseq_overlap'],
-        quality = config['pandaseq_quality'],
-        minlength = config['pandaseq_minlength'],
-        maxlength = config['pandaseq_maxlength']
-        #forward_primer = config['forward_primer'],
-        #reverse_primer = config['reverse_primer']
-    log: "{project}/pandaseq/{data}_pandaseq.stdout"
-    threads: 8
-    shell: "source /data/tools/RDP_Assembler/1.0.3/env.sh; pandaseq -N -o {params.overlap} -e {params.quality} -F -d rbfkms -l {params.minlength} -L {params.maxlength} -T {threads} -f {input.forward} -r {input.reverse}  1> {output.fastq} 2> {log}"
-
-
-rule fastqc_pandaseq:
-    input:
-        fastq = "{project}/pandaseq/{data}.fastq"
-    output: 
-        dir="{project}/pandaseq/{data}_fastqc/",zip="{project}/fastqc_pandaseq/{data}_fastqc.zip"
-    params:
-        dir="{project}/fastqc_pandaseq",
-        adapters = config["adapters_fasta"]
-    log: "fastqc.log"
-    threads: 8
-    shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.fastq} > {params.dir}/{log}"
-
-
-rule primer_matching:
-    input:
-        "{project}/pandaseq/{data}.fastq"
-    output:
-        "{project}/pandaseq/{data}_noprimer.fastq"
-    params:
-        prefix_forward="flexbar_{data}_forward",
-        prefix_reverse="flexbar_{data}_reverse"
-    log: "{project}/trim/flexbar_{data}.log"
-    run:
-        shell("/data/tools/flexbar/2.5/flexbar -t {params.prefix_forward} -b primers.fasta -r {input} --barcode-min-overlap 10 --barcode-threshold 3 --min-read-length 50 >> {log}")
-        shell("cat {params.prefix_forward}* | fastx_reverse_complement | /data/tools/flexbar/2.5/flexbar -t {params.prefix_reverse} -b primers.fasta --reads - --barcode-trim-end LEFT --barcode-min-overlap 10 --barcode-threshold 3 --min-read-length 50 --barcode-unassigned >> {log}")
-        shell("cat {params.prefix_reverse}* > {output}")
-
-
-rule fastq2fasta:
-    input:
-        fastq = "{project}/pandaseq/{data}.fastq"
-    output:
-        fasta = "{project}/pandaseq/{data}.fasta"
-    shell: "fastq_to_fasta -i {input.fastq} -o {output.fasta}"
-
-# Combine per sample files to a single project file
-rule mergefiles:
-    input:
-        fasta = expand(PROJECT + "pandaseq/{data}.fasta", data=config["data"]),
-    output: 
-        fasta="{project}/mergefiles/{project}.fasta"
-    params:
-        samples=config["data"]
-    shell: """cat {input}  > {output}"""
-
-#Rename
-#zcat ../johnny_16S/gunzip/c2s1.fastq | awk '{print (NR%4 == 1) ? $0 "_SUFFIX" : $0}' | gzip -c > another.fastq.gz
-#awk '/^>/{print $0 "_SUFFIX"; next}{print}' < johnny_16S_mock/gunzip/Mock1.fasta
-
-
-#
-# Swarm
-#
-
-rule derep_swarm:
+derep_swarm:
     input:
         "{project}/trim/{data}.fasta"
     output:
@@ -244,7 +111,7 @@ rule derep:
     input:
         "{project}/mergefiles/{ds}.fasta",
     output:
-        "{project}/{prog}/{ds}.derep.fasta"
+        temp("{project}/{prog}/{ds}.derep.fasta")
     threads: 8
     run:
         cmd = ""
@@ -259,7 +126,7 @@ rule sortbysize:
     input:
         "{project}/{prog}/{ds}.derep.fasta"
     output:
-        "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
+        temp("{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta")
     params:
         minsize="{minsize}"
     threads: 8
@@ -277,7 +144,7 @@ rule smallmem:
     input:
         "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
     output:
-        otus="{project}/{prog}/{ds}.minsize{minsize}.usearch_smallmem.fasta"
+        otus=protected("{project}/{prog}/{ds}.minsize{minsize}.usearch_smallmem.fasta")
     threads: 8
     run:
         cmd = ""
@@ -291,7 +158,7 @@ rule cluster_fast:
     input:   
         "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
     output:
-        otus="{project}/{prog}/{ds}.minsize{minsize}.usearch_cluster_fast.fasta"
+        otus=protected("{project}/{prog}/{ds}.minsize{minsize}.usearch_cluster_fast.fasta")
     threads: 8
     run:
         cmd = ""
@@ -305,7 +172,7 @@ rule uparse:
     input:
         "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
     output:
-        otus="{project}/{prog}/{ds}.minsize{minsize}.uparse.fasta"
+        otus=protected("{project}/{prog}/{ds}.minsize{minsize}.uparse.fasta")
     shell: "{USEARCH} -cluster_otus {input} -otus {output.otus} -relabel OTU_ -sizeout"
 
 # Swarm
@@ -492,8 +359,8 @@ rule biom_tax_rdp:
         taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy",
         biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom"
     output:
-        biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
-        otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
+        biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
+        otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
     run:
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
@@ -503,8 +370,8 @@ rule biom_tax_sina:
         taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy",
         biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom"
     output:
-        biom="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
-        otutable="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
+        biom=protected("{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
+        otutable=protected("{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
     run:
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
