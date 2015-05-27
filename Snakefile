@@ -462,7 +462,7 @@ rule rdp_edgar:
         rdp="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.otus.rdp",
         taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy"
     run: 
-        shell("java -Xmx1g -jar /data/tools/rdp-classifier/2.10/classifier.jar classify -c 0.8 {input} -f filterbyconf -o {output.rdp}")
+        shell("java -Xmx1g -jar /data/tools/rdp-classifier/2.10/classifier.jar classify -c 0.8 {input} -f filterbyconf -t /data/db/rdp/11.4/data/classifier/16srrna/rRNAClassifier.properties -o {output.rdp}")
         shell("""cat {output.rdp} | awk -F"\\t" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{gsub(" ","_",$0);gsub("\\"","",$0);print $1"\\t"$2";"$3";"$4";"$5";"$6";"$7}}' > {output.taxonomy}""")
 
 rule sina_parallel_edgar:
