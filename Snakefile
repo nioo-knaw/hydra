@@ -27,7 +27,9 @@ rule final:
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.nonchimeras.fasta \
                    {project}/{prog}/rdp/{project}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch","usearch"],ds=config['project'],minsize=minsize,cl=hpc_method,clmethod=cluster_methods,d=swarm_d) 
+                   {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.new.taxonomy \
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom \
+                   {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=minsize,cl=hpc_method,clmethod=cluster_methods,d=swarm_d) 
 
 rule unpack_and_rename:
     input:
@@ -73,7 +75,8 @@ rule pandaseq:
         #reverse_primer = config['reverse_primer']
     log: "{project}/pandaseq/{data}_pandaseq.stdout"
     threads: 8
-    shell: "source /data/tools/RDP_Assembler/1.0.3/env.sh; pandaseq -N -o {params.overlap} -e {params.quality} -F -d rbfkms -l {params.minlength} -L {params.maxlength} -T {threads} -f {input.forward} -r {input.reverse}  1> {output.fastq} 2> {log}"
+    # WUR-XU: reads are unbarcoded so have to add -B flag
+    shell: "source /data/tools/RDP_Assembler/1.0.3/env.sh; pandaseq -B -N -o {params.overlap} -e {params.quality} -F -d rbfkms -l {params.minlength} -L {params.maxlength} -T {threads} -f {input.forward} -r {input.reverse}  1> {output.fastq} 2> {log}"
 
 
 rule fastqc_pandaseq:
@@ -130,7 +133,7 @@ rule mergefiles:
 # Swarm
 #
 
-derep_swarm:
+rule derep_swarm:
     input:
         "{project}/trim/{data}.fasta"
     output:
@@ -463,19 +466,38 @@ rule rdp_edgar:
         taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy"
     run: 
         shell("java -Xmx1g -jar /data/tools/rdp-classifier/2.10/classifier.jar classify -c 0.8 {input} -f filterbyconf -t /data/db/rdp/11.4/data/classifier/16srrna/rRNAClassifier.properties -o {output.rdp}")
-        shell("""cat {output.rdp} | awk -F"\\t" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{gsub(" ","_",$0);gsub("\\"","",$0);print $1"\\t"$2";"$3";"$4";"$5";"$6";"$7}}' > {output.taxonomy}""")
+        shell("""cat {output.rdp} | awk -F"\\t" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{gsub(" ","_",$0);gsub("\\"","",$0);print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f_"$6"; g__"$7}}' > {output.taxonomy}""")
 
+"""
 rule sina_parallel_edgar:
     input:
         "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.fasta"
     output:
-        align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align",
-        log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
+        align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
+        aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv"
+    params:
+        align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{#}.align",
     log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
     priority: -1
     threads: 8
     # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
-    shell: "cat {input} | parallel --block 100K -j{threads} --recstart '>' --pipe /data/tools/sina/{SINA_VERSION}/sina --log-file {log} -i /dev/stdin -o {output.align} --outtype fasta --meta-fmt csv --ptdb /scratch/silva/SSURef_NR99_119_SILVA_14_07_14_opt.arb --overhang remove --turn all --search --search-db /scratch/silva/SSURef_NR99_119_SILVA_14_07_14_opt.arb --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
+    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe /data/tools/sina/{SINA_VERSION}/sina --log-file {log} -i /dev/stdin -o {params.align} --outtype fasta --meta-fmt csv --ptdb /scratch/silva/SSURef_NR99_119_SILVA_14_07_14_opt.arb --overhang remove --turn all --search --search-db /scratch/silva/SSURef_NR99_119_SILVA_14_07_14_opt.arb --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
+
+rule sina_parse_csv:
+    input:
+        aligncsv=dynamic("{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv")
+    output:
+        taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.new.taxonomy"
+    run:
+        import csv
+        out= open(output.taxonomy, "w")
+        with open(input.aligncsv, 'rt') as csvfile:
+            sinareader = csv.reader(csvfile, delimiter=',', quotechar='"')
+            for row in sinareader:
+                #print(row[0])
+                out.write("%s\t%s\n" % (row[0],row[13]))
+                
+"""
 
 rule sina_get_taxonomy_from_logfile_edgar:
     input: log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
@@ -486,6 +508,24 @@ rule sina_get_taxonomy_from_logfile_edgar:
     # Brackets are escaped by an extra bracket, because they are internaly recognised by Snakemake
     shell: "cat {input.log} | sed 's/ /|/1' | awk -F '|'  '/^sequence_identifier:/ {{id=$2}} /^lca_tax_slv:/{{split(id,a,\" \"); print a[1] \"\t\" $2}}' | tr ' ' '_' > {output.taxonomy}"
 
+# Tree
+rule filter_alignment:
+    input:
+        align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align"
+    output:
+        filtered="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina_pfiltered.fasta"
+    params:
+        outdir="{project}/{prog}/sina/"
+    shell: "source /data/tools/qiime/1.9/env.sh; filter_alignment.py -i {input.align} -o {params.outdir} --suppress_lane_mask_filter --entropy_threshold 0.10"
+
+rule make_tree:
+    input:
+        align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina_pfiltered.fasta"
+    output:
+        tree="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.fasttree.tre"
+    shell: "source /data/tools/qiime/1.9/env.sh; source /data/tools/arb/6.0.1/env.sh; make_phylogeny.py -i {input.align} -t fasttree -o {output.tree}"
+
+
 rule biom_tax_rdp:
     input:
         taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy",
@@ -494,18 +534,19 @@ rule biom_tax_rdp:
         biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
         otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
     run:
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 
 rule biom_tax_sina:
     input:
         taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy",
-        biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom"
+        biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom",
+        meta=config["metadata"]
     output:
         biom=protected("{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
         otutable=protected("{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
     run:
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 
 
@@ -517,7 +558,7 @@ rule biom_tax_swarm:
         biom="{project}/rdp/{project}.swarm_d{d}.taxonomy.biom",
         otutable="{project}/rdp/{project}.swarm_d{d}.taxonomy.otutable.txt"
     run:
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert -b --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 
 
