@@ -10,7 +10,7 @@ minsize = ["2"]
 swarm_d = ["1","2","3"]
 
 # ["swarm_d" + d for d in swarm_d]
-cluster_methods = ["usearch_smallmem", "usearch_cluster_fast", "uparse"] # + ["swarm_d" + d for d in swarm_d]
+cluster_methods = ["usearch_smallmem", "uparse"] # + ["swarm_d" + d for d in swarm_d]
 """
 {project}/{prog}/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/{ds}.minsize{minsize}.usearch.cluster_fast.fasta \
@@ -27,7 +27,6 @@ rule final:
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.nonchimeras.fasta \
                    {project}/{prog}/rdp/{project}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy \
-                   {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.new.taxonomy \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=minsize,cl=hpc_method,clmethod=cluster_methods,d=swarm_d) 
 
@@ -468,7 +467,7 @@ rule rdp_edgar:
         shell("java -Xmx1g -jar /data/tools/rdp-classifier/2.10/classifier.jar classify -c 0.8 {input} -f filterbyconf -t /data/db/rdp/11.4/data/classifier/16srrna/rRNAClassifier.properties -o {output.rdp}")
         shell("""cat {output.rdp} | awk -F"\\t" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{gsub(" ","_",$0);gsub("\\"","",$0);print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f_"$6"; g__"$7}}' > {output.taxonomy}""")
 
-"""
+
 rule sina_parallel_edgar:
     input:
         "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.fasta"
@@ -483,6 +482,7 @@ rule sina_parallel_edgar:
     # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
     shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe /data/tools/sina/{SINA_VERSION}/sina --log-file {log} -i /dev/stdin -o {params.align} --outtype fasta --meta-fmt csv --ptdb /scratch/silva/SSURef_NR99_119_SILVA_14_07_14_opt.arb --overhang remove --turn all --search --search-db /scratch/silva/SSURef_NR99_119_SILVA_14_07_14_opt.arb --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
 
+"""
 rule sina_parse_csv:
     input:
         aligncsv=dynamic("{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv")
@@ -496,8 +496,8 @@ rule sina_parse_csv:
             for row in sinareader:
                 #print(row[0])
                 out.write("%s\t%s\n" % (row[0],row[13]))
-                
-"""
+"""                
+
 
 rule sina_get_taxonomy_from_logfile_edgar:
     input: log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
@@ -529,12 +529,13 @@ rule make_tree:
 rule biom_tax_rdp:
     input:
         taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy",
-        biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom"
+        biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom",
+        meta=config["metadata"]
     output:
         biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
         otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
     run:
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 
 rule biom_tax_sina:
