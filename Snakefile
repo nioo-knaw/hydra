@@ -10,7 +10,7 @@ minsize = ["2"]
 swarm_d = ["1","2","3"]
 
 # ["swarm_d" + d for d in swarm_d]
-cluster_methods = ["usearch_smallmem", "uparse"] # + ["swarm_d" + d for d in swarm_d]
+cluster_methods = ["usearch_smallmem", "usearch_cluster_fast", "uparse"] # + ["swarm_d" + d for d in swarm_d]
 """
 {project}/{prog}/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/{ds}.minsize{minsize}.usearch.cluster_fast.fasta \
@@ -26,14 +26,14 @@ rule final:
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.otutable.txt \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.nonchimeras.fasta \
+                   {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.otus.sina.taxonomy \
                    {project}/{prog}/rdp/{project}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom \
-                   {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=minsize,cl=hpc_method,clmethod=cluster_methods,d=swarm_d) 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=minsize,cl=hpc_method,clmethod=cluster_methods,d=swarm_d) 
 
 rule unpack_and_rename:
     input:
-        forward = lambda wildcards: config["basedir"] + config["data"][wildcards.data]['forward'],
-        reverse = lambda wildcards: config["basedir"] + config["data"][wildcards.data]['reverse']
+        forward = lambda wildcards: config["data"][wildcards.data]['forward'],
+        reverse = lambda wildcards: config["data"][wildcards.data]['reverse']
     output:
         forward="{project}/gunzip/{data}_R1.fastq",
         reverse="{project}/gunzip/{data}_R2.fastq"
@@ -75,7 +75,7 @@ rule pandaseq:
     log: "{project}/pandaseq/{data}_pandaseq.stdout"
     threads: 8
     # WUR-XU: reads are unbarcoded so have to add -B flag
-    shell: "source /data/tools/RDP_Assembler/1.0.3/env.sh; pandaseq -B -N -o {params.overlap} -e {params.quality} -F -d rbfkms -l {params.minlength} -L {params.maxlength} -T {threads} -f {input.forward} -r {input.reverse}  1> {output.fastq} 2> {log}"
+    shell: "source /data/tools/RDP_Assembler/1.0.3/env.sh; pandaseq -N -o {params.overlap} -e {params.quality} -F -d rbfkms -l {params.minlength} -L {params.maxlength} -T {threads} -f {input.forward} -r {input.reverse}  1> {output.fastq} 2> {log}"
 
 
 rule fastqc_pandaseq:
@@ -423,6 +423,7 @@ rule biom_otu:
 SINA_VERSION=config['sina_version']
 SILVADB = config['silva_db']
 SINA_MIN_SIM = config['sina_min_sim']
+SILVA_ARB = config['silva_arb']
 
 rule sina_parallel:
     input:
@@ -434,7 +435,7 @@ rule sina_parallel:
     priority: -1
     threads: 8
     # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
-    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe /data/tools/sina/{SINA_VERSION}/sina --log-file {log} -i /dev/stdin -o {output.align} --outtype fasta --meta-fmt csv --ptdb /scratch/silva/SSURef_NR99_119_SILVA_14_07_14_opt.arb --overhang remove --turn all --search --search-db /scratch/silva/SSURef_NR99_119_SILVA_14_07_14_opt.arb --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
+    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe /data/tools/sina/{SINA_VERSION}/sina --log-file {log} -i /dev/stdin -o {output.align} --outtype fasta --meta-fmt csv --ptdb {SILVA_ARB} --overhang remove --turn all --search --search-db {SILVA_ARB} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
 
 rule sina_get_taxonomy_from_logfile:
     input: log="{project}/sina/{project}.swarm_d{d}.sina.log"
@@ -472,15 +473,16 @@ rule sina_parallel_edgar:
     input:
         "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.fasta"
     output:
-        align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
-        aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv"
+        #align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
+        #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
+        log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
     params:
         align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{#}.align",
     log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
     priority: -1
     threads: 8
     # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
-    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe /data/tools/sina/{SINA_VERSION}/sina --log-file {log} -i /dev/stdin -o {params.align} --outtype fasta --meta-fmt csv --ptdb /scratch/silva/SSURef_NR99_119_SILVA_14_07_14_opt.arb --overhang remove --turn all --search --search-db /scratch/silva/SSURef_NR99_119_SILVA_14_07_14_opt.arb --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
+    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe /data/tools/sina/{SINA_VERSION}/sina --log-file {log} -i /dev/stdin -o {params.align} --outtype fasta --meta-fmt csv --ptdb {SILVA_ARB} --overhang remove --turn all --search --search-db {SILVA_ARB} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
 
 """
 rule sina_parse_csv:
@@ -496,8 +498,8 @@ rule sina_parse_csv:
             for row in sinareader:
                 #print(row[0])
                 out.write("%s\t%s\n" % (row[0],row[13]))
-"""                
-
+                
+"""
 
 rule sina_get_taxonomy_from_logfile_edgar:
     input: log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
@@ -529,13 +531,12 @@ rule make_tree:
 rule biom_tax_rdp:
     input:
         taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy",
-        biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom",
-        meta=config["metadata"]
+        biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom"
     output:
         biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
         otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
     run:
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
+        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 
 rule biom_tax_sina:
