@@ -27,8 +27,9 @@ rule final:
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.nonchimeras.fasta \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.otus.sina.taxonomy \
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
                    {project}/{prog}/rdp/{project}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=minsize,cl=hpc_method,clmethod=cluster_methods,d=swarm_d) 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.rdp.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=minsize,cl=hpc_method,clmethod=cluster_methods,d=swarm_d) 
 
 rule unpack_and_rename:
     input:
@@ -95,7 +96,7 @@ rule primer_matching:
     input:
         "{project}/pandaseq/{data}.fastq"
     output:
-        "{project}/pandaseq/{data}_noprimer.fastq"
+        "{project}/flexbar/{data}.fastq"
     params:
         prefix_forward="flexbar_{data}_forward",
         prefix_reverse="flexbar_{data}_reverse"
@@ -108,7 +109,7 @@ rule primer_matching:
 
 rule fastq2fasta:
     input:
-        fastq = "{project}/pandaseq/{data}.fastq"
+        fastq = "{project}/flexbar/{data}.fastq"
     output:
         fasta = "{project}/pandaseq/{data}.fasta"
     shell: "fastq_to_fasta -i {input.fastq} -o {output.fasta}"
@@ -533,8 +534,8 @@ rule biom_tax_rdp:
         taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy",
         biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom"
     output:
-        biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
-        otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
+        biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.rdp.biom"),
+        otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.rdp.otutable.txt")
     run:
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
@@ -545,8 +546,8 @@ rule biom_tax_sina:
         biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom",
         meta=config["metadata"]
     output:
-        biom=protected("{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
-        otutable=protected("{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
+        biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom"),
+        otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.otutable.txt")
     run:
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
