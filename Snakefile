@@ -4,32 +4,13 @@ configfile: "config.json"
 
 PROJECT = config["project"] + "/"
 
-# different config settings
-hpc_method = ["al","cl","sl"]
-minsize = ["2"]
-swarm_d = ["1","2","3"]
-
-# ["swarm_d" + d for d in swarm_d]
-cluster_methods = ["usearch_smallmem", "usearch_cluster_fast", "uparse"] # + ["swarm_d" + d for d in swarm_d]
-"""
-{project}/{prog}/{ds}.minsize{minsize}.usearch_smallmem.fasta \
-                   {project}/{prog}/{ds}.minsize{minsize}.usearch.cluster_fast.fasta \
-                   {project}/{prog}/{ds}.minsize{minsize}.uparse.fasta \
-"""
-# project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.otutable.txt
-#                   {project}/{prog}/{ds}.minsize{minsize}.swarm_d{d}.otus.swarm.fasta \
-# {project}/{prog}/{ds}.minsize{minsize}.swarm_d{d}.otus.otutable.txt \
 rule final:
     input: expand("{project}/fastqc_raw/{data}_R1_fastqc.zip \
                    {project}/fastqc_pandaseq/{data}_fastqc.zip \
-                   {project}/{prog}/{ds}.minsize{minsize}.uparse.fasta \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.otutable.txt \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.nonchimeras.fasta \
-                   {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.otus.sina.taxonomy \
+                   {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
+                   {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
-                   {project}/{prog}/rdp/{project}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.rdp.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=minsize,cl=hpc_method,clmethod=cluster_methods,d=swarm_d) 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre ".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
 
 rule unpack_and_rename:
     input:
@@ -70,14 +51,13 @@ rule pandaseq:
         overlap = config['pandaseq_overlap'],
         quality = config['pandaseq_quality'],
         minlength = config['pandaseq_minlength'],
-        maxlength = config['pandaseq_maxlength']
-        #forward_primer = config['forward_primer'],
-        #reverse_primer = config['reverse_primer']
+        maxlength = config['pandaseq_maxlength'],
+        forward_primer = config['forward_primer'],
+        reverse_primer = config['reverse_primer']
     log: "{project}/pandaseq/{data}_pandaseq.stdout"
-    threads: 8
-    # WUR-XU: reads are unbarcoded so have to add -B flag
-    shell: "source /data/tools/RDP_Assembler/1.0.3/env.sh; pandaseq -N -o {params.overlap} -e {params.quality} -F -d rbfkms -l {params.minlength} -L {params.maxlength} -T {threads} -f {input.forward} -r {input.reverse}  1> {output.fastq} 2> {log}"
-
+    threads: 1
+    #shell: "source /data/tools/RDP_Assembler/1.0.3/env.sh; pandaseq -N -o {params.overlap} -e {params.quality} -F -d rbfkms -l {params.minlength} -L {params.maxlength} -T {threads} -f {input.forward} -r {input.reverse}  1> {output.fastq} 2> {log}"
+    shell: "/data/tools/pandaseq/2.9/bin/pandaseq -N -f {input.forward} -r {input.reverse} -p {params.forward_primer} -q {params.reverse_primer} -A rdp_mle -T {threads} -w {output.fastq} -g {log}"
 
 rule fastqc_pandaseq:
     input:
@@ -109,7 +89,7 @@ rule primer_matching:
 
 rule fastq2fasta:
     input:
-        fastq = "{project}/flexbar/{data}.fastq"
+        fastq = "{project}/pandaseq/{data}.fastq"
     output:
         fasta = "{project}/pandaseq/{data}.fasta"
     shell: "fastq_to_fasta -i {input.fastq} -o {output.fasta}"
@@ -123,114 +103,6 @@ rule mergefiles:
     params:
         samples=config["data"]
     shell: """cat {input}  > {output}"""
-
-#Rename
-#zcat ../johnny_16S/gunzip/c2s1.fastq | awk '{print (NR%4 == 1) ? $0 "_SUFFIX" : $0}' | gzip -c > another.fastq.gz
-#awk '/^>/{print $0 "_SUFFIX"; next}{print}' < johnny_16S_mock/gunzip/Mock1.fasta
-
-
-#
-# Swarm
-#
-
-rule derep_swarm:
-    input:
-        "{project}/trim/{data}.fasta"
-    output:
-        "{project}/swarm/{data}.fasta"
-    params:
-        minsize="1"
-    shell: """
-grep -v "^>" {input} | \
-grep -v [^ACGTacgt] | sort -d | uniq -c | \
-while read abundance sequence ; do
-    if [[ ${{abundance}} -ge {params.minsize} ]]; then
-        hash=$(printf "${{sequence}}" | sha1sum)
-        hash=${{hash:0:40}}
-        printf ">%s_%d_%s\\n" "${{hash}}" "${{abundance}}" "${{sequence}}"
-    fi
-done | sort -t "_" -k2,2nr -k1.2,1d | \
-sed -e 's/\_/\\n/2' > {output}
-"""
-
-rule swarm_amplicon_contigency:
-    input:
-        fasta = expand(PROJECT + "swarm/{data}.fasta", data=config["data"])
-    output:
-        count="{project}/swarm/{project}_amplicon_contingency_table.csv",
-        fasta="{project}/swarm/{project}.fasta"
-    run:
-        shell("python2.7 /data/tools/swarm/1.2.20/amplicon_contingency_table.py {input} > {output.count}")
-        shell("cat {input} > {output.fasta}")
-
-rule swarm:
-    input: 
-        "{project}/swarm/{project}.fasta"
-    output:
-        swarms="{project}/swarm/{project}.swarm_d{d}.swarms",
-        stats="{project}/swarm/{project}.swarm_d{d}.stats"
-    params: d="{d}" 
-    threads: 16
-    # The alternative algorithm only works with d=1!
-    shell: "/data/tools/swarm/1.2.20/swarm -d {params.d} -t {threads} -s {output.stats} < {input}  > {output.swarms}"
-
-rule swarm_get_seed:
-    input: 
-        swarms="{project}/swarm/{project}.swarm_d{d}.swarms",
-        amplicons="{project}/swarm/{project}.fasta"
-    output:
-        seeds="{project}/swarm/{project}.swarm_d{d}.seeds.fasta"
-    shell: "SEEDS=$(mktemp); cut -d ' ' -f 1 {input.swarms} | sed -e 's/^/>/' > '${{SEEDS}}'; grep -A 1 -F -f '${{SEEDS}}' {input.amplicons} | sed -e '/^--$/d' > {output.seeds}"
-
-rule swarm_otu_contigency:
-     input: 
-        stats="{project}/swarm/{project}.swarm_d{d}.stats",
-        swarms="{project}/swarm/{project}.swarm_d{d}.swarms",
-        amplicon_count="{project}/swarm/{project}_amplicon_contingency_table.csv"
-     output:
-        otu_count="{project}/swarm/{project}.swarm_d{d}.otu_contingency_table.csv"
-     priority: 50
-     shell:"""
-echo -e "OTU\\t$(head -n 1 "{input.amplicon_count}")" > "{output.otu_count}"
-
-awk -v SWARM="{input.swarms}"     -v TABLE="{input.amplicon_count}"     'BEGIN {{FS = " "
-            while ((getline < SWARM) > 0) {{
-                swarms[$1] = $0
-            }}
-            FS = "\\t"
-            while ((getline < TABLE) > 0) {{
-                table[$1] = $0
-            }}
-           }}
-
-     {{# Parse the stat file (OTUs sorted by decreasing abundance)
-      seed = $3 "_" $4
-      n = split(swarms[seed], OTU, "[ _]")
-      for (i = 1; i < n; i = i + 2) {{
-          s = split(table[OTU[i]], abundances, "\\t")
-          for (j = 1; j < s; j++) {{
-              samples[j] += abundances[j+1]
-          }}
-      }}
-      printf "%s\\t%s", NR, $3
-      for (j = 1; j < s; j++) {{
-          printf "\\t%s", samples[j]
-      }}
-     printf "\\n"
-     delete samples
-     }}' "{input.stats}" >> "{output.otu_count}"
-    """
-
-rule swarm_biom:
-    input:
-        otu_count="{project}/swarm/{project}.swarm_d{d}.otu_contingency_table.csv"
-    output:
-        otutable="{project}/swarm/{project}.swarm_d{d}.otutable.txt",
-        biom="{project}/swarm/{project}.swarm_d{d}.biom"
-    run:
-        #shell("cut -f 1,3,4 {input} > {output.otutable}")
-        shell("""awk  '{{delim = ""; for (i=1;i<=NF-1;i++) if (i!=2) {{printf delim "%s", $i; delim = "\\t"}}; printf "\\n"}}' < {input} > {output.otutable}""")
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert -i {output.otutable} -o {output.biom} --table-type='otu table'")
 
 ########
 # VSEARCH PIPELINE
@@ -279,7 +151,7 @@ rule smallmem:
     input:
         "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
     output:
-        otus=protected("{project}/{prog}/{ds}.minsize{minsize}.usearch_smallmem.fasta")
+        otus=protected("{project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta")
     threads: 8
     run:
         cmd = ""
@@ -310,41 +182,6 @@ rule uparse:
         otus=protected("{project}/{prog}/{ds}.minsize{minsize}.uparse.fasta")
     shell: "{USEARCH} -cluster_otus {input} -otus {output.otus} -relabel OTU_ -sizeout"
 
-# Swarm
-rule swarm_vsearch:
-    input: 
-        "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
-    output:
-        swarms="{project}/{prog}/{ds}.minsize{minsize}.swarm_d{d}.swarms",
-        stats="{project}/{prog}/{ds}.minsize{minsize}.swarm_d{d}.stats"
-    params: d="{d}" 
-    threads: 16
-    # The alternative algorithm only works with d=1!
-    shell: "/data/tools/swarm/1.2.20/swarm -d {params.d} -t {threads} -z -u uclust.out -s {output.stats} < {input}  > {output.swarms}"
-
-rule swarm_get_seed_vsearch:
-    input: 
-        swarms="{project}/{prog}/{ds}.minsize{minsize}.swarm_d{d}.swarms",
-        amplicons="{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
-    output:
-        seeds="{project}/{prog}/{ds}.minsize{minsize}.swarm_d{d,\d+}.fasta"
-    shell: "SEEDS=$(mktemp); cut -d ' ' -f 1 {input.swarms} | sed -e 's/^/>/' > '${{SEEDS}}'; grep -A 1 -F -f '${{SEEDS}}' {input.amplicons} | sed -e '/^--$/d' > {output.seeds}"
-
-
-# HPC-Clust
-rule hpc_clust:
-    input: "{project}/filterseqs/{project}.unique.good.filter.fasta"
-    output: 
-        log="{project}/hpc-clust/{project}.{cl}",
-        otus="{project}/hpc-clust/{project}.{cl}.otus"
-    params:
-        prefix="{project}/hpc-clust/{project}",
-        method="{cl}"
-    log: "{project}/hpc-clust/{project}.log"
-    threads: 16
-    run: 
-        shell("source /data/tools/hpc-clust/1.2.0/env.sh; hpc-clust -nthreads {threads} -{params.method} true -t 0.95 {input} -ofile {params.prefix} -ignoreMemThres true > {log}")
-        shell("/data/tools/hpc-clust/1.2.0/bin/make-otus-mothur.sh {input} {output.log} 0.97 > {output.otus}")
 
 #
 # Chimera checking
@@ -352,11 +189,11 @@ rule hpc_clust:
 
 rule uchime:
     input:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.fasta"
+        "{project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta"
     output:
-        chimeras="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.chimeras.fasta",
-        nonchimeras="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.nonchimeras.fasta"
-    log: "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.uchime.log"
+        chimeras="{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.chimeras",
+        nonchimeras="{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.fasta"
+    log: "{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.uchime.log"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
@@ -371,17 +208,17 @@ rule uchime:
 #TODO Check mapping accuracy!!!
 rule make_otu_names:
     input:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.nonchimeras.fasta"
+        "{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.fasta"
     output:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.fasta"
+        "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
     shell: "python2.7 /data/tools/usearch/uparse_scripts/fasta_number.py {input} OTU_ > {output}"
 
 rule mapping:
     input:
-        otus="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.fasta",
+        otus="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
         reads="{project}/mergefiles/{ds}.fasta"
     output:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.uc"
+        "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.uc"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
@@ -390,32 +227,19 @@ rule mapping:
             cmd = USEARCH
         shell("{cmd} -usearch_global {input.reads} -db {input.otus} -strand plus -id 0.97 -uc {output}")
 
-#http://rpackages.ianhowson.com/bioc/phyloseq/man/import_usearch_uc.html
-rule create_otutable_phyloseq:
-    input:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.uc"
-    output:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.phyloseq.otutable"
-    run:
-        R("""
-          require('phyloseq')
-          OTU <- import_usearch_uc('{input}', colRead = 9, colOTU = 10,readDelimiter = "_", verbose = TRUE)
-          write.table(t(OTU[,2:ncol(OTU)]),file="{output}",sep=\"\t\")
-          """)
-
 rule create_otutable:
     input:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.uc"
+        "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.uc"
     output:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.otutable.txt"
+        "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.otutable.txt"
     shell: "python2.7 /data/tools/usearch/uparse_scripts/uc2otutab.py {input} > {output}"
 
 # convert to biom file
 rule biom_otu:
     input: 
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.otutable.txt"
+        "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.otutable.txt"
     output:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom" 
+        "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom" 
     shell: "/data/tools/qiime/1.9/qiime1.9/bin/biom convert -i {input} --to-json -o {output} --table-type='OTU table'"
 
 #
@@ -426,85 +250,27 @@ SILVADB = config['silva_db']
 SINA_MIN_SIM = config['sina_min_sim']
 SILVA_ARB = config['silva_arb']
 
-rule sina_parallel:
+
+
+rule sina_parallel_edgar:
     input:
-        "{project}/swarm/{project}.swarm_d{d}.seeds.fasta"
+        "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
     output:
-        align="{project}/sina/{project}.swarm_d{d}.sina.align",
-        log="{project}/sina/{project}.swarm_d{d}.sina.log"
-    log: "{project}/sina/{project}.swarm_d{d}.sina.log"
+        #align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
+        #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
+        log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log",
+        align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align",
+    log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
     priority: -1
     threads: 8
     # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
     shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe /data/tools/sina/{SINA_VERSION}/sina --log-file {log} -i /dev/stdin -o {output.align} --outtype fasta --meta-fmt csv --ptdb {SILVA_ARB} --overhang remove --turn all --search --search-db {SILVA_ARB} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
 
-rule sina_get_taxonomy_from_logfile:
-    input: log="{project}/sina/{project}.swarm_d{d}.sina.log"
-    output: taxonomy="{project}/sina/{project}.swarm_d{d}.sina.taxonomy"
-    # Parse the log file from Sina to get the taxonomic classification
-    # The csv output does not contain the sequence identifier, thats way this approach is better
-    # The first space needs to be replaced in order to keep the space in the taxonomy string (would be splitted otherwise)
-    # Brackets are escaped by an extra bracket, because they are internaly recognised by Snakemake
-    shell: "cat {input.log} | sed 's/ /|/1' | awk -F '|'  '/^sequence_identifier:/ {{id=$2}} /^lca_tax_slv:/{{split(id,a,\" \"); print a[1] \"\t\" $2}}' | tr ' ' '_' > {output.taxonomy}"
-
-rule rdp:
-    input:
-        "{project}/swarm/{project}.swarm_d{d}.seeds.fasta"
-    output:
-        otus="{project}/rdp/{project}.swarm_d{d}.seeds.otus.fasta",
-        rdp="{project}/rdp/{project}.swarm_d{d}.seeds.rdp",
-        taxonomy="{project}/rdp/{project}.swarm_d{d}.seeds.rdp.taxonomy.txt"
-    run:
-        shell("python2.7 /data/tools/usearch/uparse_scripts/fasta_number.py {input} > {output.otus}") 
-        shell("java -Xmx1g -jar /data/tools/rdp-classifier/2.10/classifier.jar classify -c 0.8 {output.otus} -f filterbyconf -o {output.rdp}")
-        shell("""cat {output.rdp} | awk -F"\\t" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{gsub(" ","_",$0);gsub("\\"","",$0);print $1"\\t"$2";"$3";"$4";"$5";"$6";"$7}}' > {output.taxonomy}""")
-
-rule rdp_edgar:
-    input:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.fasta"
-    output:
-        rdp="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.otus.rdp",
-        taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy"
-    run: 
-        shell("java -Xmx1g -jar /data/tools/rdp-classifier/2.10/classifier.jar classify -c 0.8 {input} -f filterbyconf -t /data/db/rdp/11.4/data/classifier/16srrna/rRNAClassifier.properties -o {output.rdp}")
-        shell("""cat {output.rdp} | awk -F"\\t" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{gsub(" ","_",$0);gsub("\\"","",$0);print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f_"$6"; g__"$7}}' > {output.taxonomy}""")
-
-
-rule sina_parallel_edgar:
-    input:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.fasta"
-    output:
-        #align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
-        #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
-        log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
-    params:
-        align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{#}.align",
-    log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
-    priority: -1
-    threads: 8
-    # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
-    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe /data/tools/sina/{SINA_VERSION}/sina --log-file {log} -i /dev/stdin -o {params.align} --outtype fasta --meta-fmt csv --ptdb {SILVA_ARB} --overhang remove --turn all --search --search-db {SILVA_ARB} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
-
-"""
-rule sina_parse_csv:
-    input:
-        aligncsv=dynamic("{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv")
-    output:
-        taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.new.taxonomy"
-    run:
-        import csv
-        out= open(output.taxonomy, "w")
-        with open(input.aligncsv, 'rt') as csvfile:
-            sinareader = csv.reader(csvfile, delimiter=',', quotechar='"')
-            for row in sinareader:
-                #print(row[0])
-                out.write("%s\t%s\n" % (row[0],row[13]))
-                
-"""
-
 rule sina_get_taxonomy_from_logfile_edgar:
-    input: log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
-    output: taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy"
+    input:
+        log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
+    output:
+        taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy"
     # Parse the log file from Sina to get the taxonomic classification
     # The csv output does not contain the sequence identifier, thats way this approach is better
     # The first space needs to be replaced in order to keep the space in the taxonomy string (would be splitted otherwise)
@@ -519,31 +285,19 @@ rule filter_alignment:
         filtered="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina_pfiltered.fasta"
     params:
         outdir="{project}/{prog}/sina/"
-    shell: "source /data/tools/qiime/1.9/env.sh; filter_alignment.py -i {input.align} -o {params.outdir} --suppress_lane_mask_filter --entropy_threshold 0.10"
+    shell: "set +u; source /data/tools/qiime/1.9/env.sh; set -u; filter_alignment.py -i {input.align} -o {params.outdir} --suppress_lane_mask_filter --entropy_threshold 0.10"
 
 rule make_tree:
     input:
         align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina_pfiltered.fasta"
     output:
-        tree="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.fasttree.tre"
-    shell: "source /data/tools/qiime/1.9/env.sh; source /data/tools/arb/6.0.1/env.sh; make_phylogeny.py -i {input.align} -t fasttree -o {output.tree}"
-
-
-rule biom_tax_rdp:
-    input:
-        taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.otus.rdp.taxonomy",
-        biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom"
-    output:
-        biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.rdp.biom"),
-        otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.rdp.otutable.txt")
-    run:
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
+        tree="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre"
+    shell: "set +u; source /data/tools/qiime/1.9/env.sh; source /data/tools/arb/6.0.1/env.sh; set -u; make_phylogeny.py -i {input.align} -t fasttree -o {output.tree}"
 
 rule biom_tax_sina:
     input:
         taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy",
-        biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom",
+        biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
         meta=config["metadata"]
     output:
         biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom"),
@@ -551,20 +305,3 @@ rule biom_tax_sina:
     run:
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
         shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
-
-
-rule biom_tax_swarm:
-    input:
-        taxonomy="{project}/rdp/{project}.swarm_d{d}.seeds.rdp.taxonomy.txt",
-        biom="{project}/swarm/{project}.swarm_d{d}.biom"
-    output:
-        biom="{project}/rdp/{project}.swarm_d{d}.taxonomy.biom",
-        otutable="{project}/rdp/{project}.swarm_d{d}.taxonomy.otutable.txt"
-    run:
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert -b --header-key=taxonomy -i {output.biom} -o {output.otutable}")
-
-
-           
-# Filter OTUs
-#filter_otus_from_otu_table.py  -i swarm.biom -o filter.biom -n 5 
