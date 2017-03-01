@@ -1,0 +1,5 @@
+channels:
+  - bioconda
+dependencies:
+  - qiime ==1.9.1
+

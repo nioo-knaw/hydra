@@ -1,0 +1,5 @@
+channels:
+  - bioconda
+dependencies:
+  - vsearch ==2.4.0
+
