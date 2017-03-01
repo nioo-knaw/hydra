@@ -56,8 +56,8 @@ rule pandaseq:
         reverse_primer = config['reverse_primer']
     log: "{project}/pandaseq/{data}_pandaseq.stdout"
     threads: 1
-    #shell: "source /data/tools/RDP_Assembler/1.0.3/env.sh; pandaseq -N -o {params.overlap} -e {params.quality} -F -d rbfkms -l {params.minlength} -L {params.maxlength} -T {threads} -f {input.forward} -r {input.reverse}  1> {output.fastq} 2> {log}"
-    shell: "/data/tools/pandaseq/2.9/bin/pandaseq -N -f {input.forward} -r {input.reverse} -p {params.forward_primer} -q {params.reverse_primer} -A rdp_mle -T {threads} -w {output.fastq} -g {log}"
+    conda: "envs/pandaseq.yaml"
+    shell: "pandaseq -N -f {input.forward} -r {input.reverse} -p {params.forward_primer} -q {params.reverse_primer} -A rdp_mle -T {threads} -w {output.fastq} -g {log}"
 
 rule fastqc_pandaseq:
     input:
