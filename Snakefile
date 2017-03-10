@@ -6,7 +6,6 @@ PROJECT = config["project"] + "/"
 
 rule final:
     input: expand("{project}/fastqc_raw/{data}_R1_fastqc.zip \
-                   {project}/fastqc_pandaseq/{data}_fastqc.zip \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
@@ -211,7 +210,7 @@ rule make_otu_names:
         "{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.fasta"
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
-    shell: "python2.7 fasta_number.py {input} OTU_ > {output}"
+    shell: "python2.7 uparse_scripts/fasta_number.py {input} OTU_ > {output}"
 
 rule mapping:
     input:
@@ -233,7 +232,7 @@ rule create_otutable:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.uc"
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.otutable.txt"
-    shell: "python2.7 uc2otutab.py {input} > {output}"
+    shell: "python2.7 uparse_scripts/uc2otutab.py {input} > {output}"
 
 # convert to biom file
 rule biom_otu:
