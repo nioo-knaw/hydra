@@ -1,5 +1,5 @@
 channels:
   - bioconda
 dependencies:
-  - pandaseq ==2.10
+  - pandaseq ==2.11
 
