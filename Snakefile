@@ -6,7 +6,6 @@ PROJECT = config["project"] + "/"
 
 rule final:
     input: expand("{project}/fastqc_raw/{data}_R1_fastqc.zip \
-                   {project}/fastqc_pandaseq/{data}_fastqc.zip \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
@@ -37,6 +36,7 @@ rule fastqc:
         adapters = config["adapters_fasta"]
     log: "fastqc_raw.log"
     threads: 2
+    conda: "envs/fastqc.yaml"
     run:
         shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log}")
         shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}")
@@ -46,7 +46,7 @@ rule pandaseq:
         forward="{project}/gunzip/{data}_R1.fastq",
         reverse="{project}/gunzip/{data}_R2.fastq"
     output:
-        fastq = "{project}/pandaseq/{data}.fastq"
+        fasta = "{project}/pandaseq/{data}.fasta"
     params:
         overlap = config['pandaseq_overlap'],
         quality = config['pandaseq_quality'],
@@ -56,8 +56,8 @@ rule pandaseq:
         reverse_primer = config['reverse_primer']
     log: "{project}/pandaseq/{data}_pandaseq.stdout"
     threads: 1
-    #shell: "source /data/tools/RDP_Assembler/1.0.3/env.sh; pandaseq -N -o {params.overlap} -e {params.quality} -F -d rbfkms -l {params.minlength} -L {params.maxlength} -T {threads} -f {input.forward} -r {input.reverse}  1> {output.fastq} 2> {log}"
-    shell: "/data/tools/pandaseq/2.9/bin/pandaseq -N -f {input.forward} -r {input.reverse} -p {params.forward_primer} -q {params.reverse_primer} -A rdp_mle -T {threads} -w {output.fastq} -g {log}"
+    conda: "envs/pandaseq.yaml"
+    shell: "pandaseq -N -f {input.forward} -r {input.reverse} -p {params.forward_primer} -q {params.reverse_primer} -A rdp_mle -T {threads} -w {output.fasta} -g {log}"
 
 rule fastqc_pandaseq:
     input:
@@ -69,9 +69,11 @@ rule fastqc_pandaseq:
         adapters = config["adapters_fasta"]
     log: "fastqc.log"
     threads: 8
+    conda: "envs/fastqc.yaml"
     shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.fastq} > {params.dir}/{log}"
 
 
+#Obsolete
 rule primer_matching:
     input:
         "{project}/pandaseq/{data}.fastq"
@@ -86,7 +88,7 @@ rule primer_matching:
         shell("cat {params.prefix_forward}* | fastx_reverse_complement | /data/tools/flexbar/2.5/flexbar -t {params.prefix_reverse} -b primers.fasta --reads - --barcode-trim-end LEFT --barcode-min-overlap 10 --barcode-threshold 3 --min-read-length 50 --barcode-unassigned >> {log}")
         shell("cat {params.prefix_reverse}* > {output}")
 
-
+#Obsolete
 rule fastq2fasta:
     input:
         fastq = "{project}/pandaseq/{data}.fastq"
@@ -104,15 +106,6 @@ rule mergefiles:
         samples=config["data"]
     shell: """cat {input}  > {output}"""
 
-########
-# VSEARCH PIPELINE
-########
-USEARCH = "/data/tools/usearch/7.0.1090/usearch"
-VSEARCH = "/data/tools/vsearch/1.0.10/vsearch-1.0.10-linux-x86_64"
-# VSEARCH commands are compatible with USEARCH commands
-# depending on the output file that is requested the required program is chosen:
-# Example: snakemake -j 8  vsearch/B2R.results.txt -p
-
 # Dereplication
 rule derep:
     input:
@@ -120,12 +113,13 @@ rule derep:
     output:
         temp("{project}/{prog}/{ds}.derep.fasta")
     threads: 8
+    conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
-            cmd = VSEARCH
+            cmd = "vsearch"
         elif wildcards.prog == "usearch":
-            cmd = USEARCH
+            cmd = "usearch"
         shell("{cmd} -derep_fulllength {input} -output {output} -sizeout -threads {threads}")
 
 # Abundance sort and discard singletons
@@ -137,13 +131,14 @@ rule sortbysize:
     params:
         minsize="{minsize}"
     threads: 8
+    conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
-            cmd = VSEARCH
+            cmd = "vsearch"
             shell("{cmd} -sortbysize {input} -fasta_width 0 -output {output} -threads {threads} -minsize {params.minsize}")      
         elif wildcards.prog == "usearch":
-            cmd = USEARCH
+            cmd = "usearch"
             shell("{cmd} -sortbysize {input} -output {output} -minsize {params.minsize}")
 
 # Uclust clustering
@@ -153,12 +148,13 @@ rule smallmem:
     output:
         otus=protected("{project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta")
     threads: 8
+    conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
-            cmd = VSEARCH      
+            cmd = "vsearch"      
         elif wildcards.prog == "usearch":
-            cmd = USEARCH
+            cmd = "usearch"
         shell("{cmd} --cluster_smallmem {input} --usersort -centroids {output.otus} --id 0.97 -sizeout")
 
 rule cluster_fast:
@@ -167,14 +163,16 @@ rule cluster_fast:
     output:
         otus=protected("{project}/{prog}/{ds}.minsize{minsize}.usearch_cluster_fast.fasta")
     threads: 8
+    conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
-            cmd = VSEARCH
+            cmd = "vsearch"
         elif wildcards.prog == "usearch":
-            cmd = USEARCH
+            cmd = "usearch"
         shell("{cmd} --cluster_fast {input} --usersort -centroids {output.otus} --id 0.97 -sizeout")
 
+# Not longer supported since it is not in bioconda
 rule uparse:
     input:
         "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
@@ -194,24 +192,25 @@ rule uchime:
         chimeras="{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.chimeras",
         nonchimeras="{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.fasta"
     log: "{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.uchime.log"
+    conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
-            cmd = VSEARCH
+            cmd = "vsearch"
         elif wildcards.prog == "usearch":
-            cmd = USEARCH
+            cmd = "usearch"
         shell("{cmd} --uchime_denovo {input} --nonchimeras {output.nonchimeras} --chimeras {output.chimeras} > {log}")
 
 # 
 # Mapping
 #
-#TODO Check mapping accuracy!!!
+
 rule make_otu_names:
     input:
         "{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.fasta"
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
-    shell: "python2.7 /data/tools/usearch/uparse_scripts/fasta_number.py {input} OTU_ > {output}"
+    shell: "python2.7 uparse_scripts/fasta_number.py {input} OTU_ > {output}"
 
 rule mapping:
     input:
@@ -219,12 +218,13 @@ rule mapping:
         reads="{project}/mergefiles/{ds}.fasta"
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.uc"
+    conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
-            cmd = VSEARCH
+            cmd = "vsearch"
         elif wildcards.prog == "usearch":
-            cmd = USEARCH
+            cmd = "usearch"
         shell("{cmd} -usearch_global {input.reads} -db {input.otus} -strand plus -id 0.97 -uc {output}")
 
 rule create_otutable:
@@ -232,7 +232,7 @@ rule create_otutable:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.uc"
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.otutable.txt"
-    shell: "python2.7 /data/tools/usearch/uparse_scripts/uc2otutab.py {input} > {output}"
+    shell: "python2.7 uparse_scripts/uc2otutab.py {input} > {output}"
 
 # convert to biom file
 rule biom_otu:
@@ -240,7 +240,8 @@ rule biom_otu:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.otutable.txt"
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom" 
-    shell: "/data/tools/qiime/1.9/qiime1.9/bin/biom convert -i {input} --to-json -o {output} --table-type='OTU table'"
+    conda: "envs/biom-format.yaml"
+    shell: "biom convert -i {input} --to-json -o {output} --table-type='OTU table'"
 
 #
 # Taxonomy
@@ -264,7 +265,8 @@ rule sina_parallel_edgar:
     priority: -1
     threads: 8
     # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
-    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe /data/tools/sina/{SINA_VERSION}/sina --log-file {log} -i /dev/stdin -o {output.align} --outtype fasta --meta-fmt csv --ptdb {SILVA_ARB} --overhang remove --turn all --search --search-db {SILVA_ARB} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
+    conda: "envs/sina.yaml"
+    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin -o {output.align} --outtype fasta --meta-fmt csv --ptdb {SILVA_ARB} --overhang remove --turn all --search --search-db {SILVA_ARB} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
 
 rule sina_get_taxonomy_from_logfile_edgar:
     input:
@@ -285,14 +287,16 @@ rule filter_alignment:
         filtered="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina_pfiltered.fasta"
     params:
         outdir="{project}/{prog}/sina/"
-    shell: "set +u; source /data/tools/qiime/1.9/env.sh; set -u; filter_alignment.py -i {input.align} -o {params.outdir} --suppress_lane_mask_filter --entropy_threshold 0.10"
+    conda: "envs/qiime.yaml"
+    shell: "filter_alignment.py -i {input.align} -o {params.outdir} --suppress_lane_mask_filter --entropy_threshold 0.10"
 
 rule make_tree:
     input:
         align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina_pfiltered.fasta"
     output:
         tree="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre"
-    shell: "set +u; source /data/tools/qiime/1.9/env.sh; source /data/tools/arb/6.0.1/env.sh; set -u; make_phylogeny.py -i {input.align} -t fasttree -o {output.tree}"
+    conda: "envs/qiime.yaml"
+    shell: "make_phylogeny.py -i {input.align} -t fasttree -o {output.tree}"
 
 
 
@@ -305,8 +309,9 @@ rule biom_tax_sina:
         taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.qiimeformat.taxonomy",
         biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom"),
         otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.otutable.txt")
+    conda: "envs/biom-format.yaml"
     run:
         shell("""cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy}""")
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
-        shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
+        shell("biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
+        shell("biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 

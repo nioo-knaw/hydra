@@ -1,0 +1,7 @@
+channels:
+  - bioconda
+dependencies:
+  - python ==2.7.12
+  - qiime ==1.9.1
+  - pyqt ==4.11.4
+  - xorg-libsm
