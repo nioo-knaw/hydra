@@ -265,7 +265,7 @@ rule sina_parallel_edgar:
     priority: -1
     threads: 8
     # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
-    conda: "envs/sina.yaml"
+    #conda: "envs/sina.yaml"
     shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin -o {output.align} --outtype fasta --meta-fmt csv --ptdb {SILVA_ARB} --overhang remove --turn all --search --search-db {SILVA_ARB} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
 
 rule sina_get_taxonomy_from_logfile_edgar:
