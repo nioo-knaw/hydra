@@ -43,7 +43,7 @@ def get_sample_files(path):
 
                 print(fname)
                 if "_R1" in fname or "_r1" in fname or "_1" in fname:
-                    fname = replace_last(fname,"_1","_2")
+                    fname = replace_last(fname,"_1.","_2.")
                     r2_path = os.path.join(dir_name, fname.replace("_R1", "_R2").replace("_r1", "_r2"))
                     print(r2_path)
                     if not r2_path == fq_path:
@@ -51,7 +51,7 @@ def get_sample_files(path):
                         fastq_paths.append(r2_path)
 
                 if "_R2" in fname or "_r2" in fname or "_2" in fname:
-                    fname = replace_last(fname,"_2","_1")
+                    fname = replace_last(fname,"_2.","_1.")
                     r1_path = os.path.join(dir_name, fname.replace("_R2", "_R1").replace("_r2", "_r1"))
                     if not r1_path == fq_path:
                         seen.add(r1_path)
