@@ -31,21 +31,16 @@ def get_sample_files(path):
                 sample_id = sample_id.replace("_R1", "").replace("_r1", "").replace("_R2", "").replace("_r2", "")
                 sample_id = re.sub("_1$", "", sample_id)
                 sample_id = re.sub("_2$", "", sample_id)
-#                sample_id = replace_last(sample_id, "_1", "")
-#                sample_id = replace_last(sample_id, "_2", "")
                 sample_id = sample_id.replace("_", "-").replace(" ", "-")
-#                print(sample_id)
 
                 fq_path = os.path.join(dir_name, fname)
                 fastq_paths = [fq_path]
 
                 if fq_path in seen: continue
 
-                print(fname)
                 if "_R1" in fname or "_r1" in fname or "_1" in fname:
                     fname = replace_last(fname,"_1.","_2.")
                     r2_path = os.path.join(dir_name, fname.replace("_R1", "_R2").replace("_r1", "_r2"))
-                    print(r2_path)
                     if not r2_path == fq_path:
                         seen.add(r2_path)
                         fastq_paths.append(r2_path)
