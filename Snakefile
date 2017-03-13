@@ -1,6 +1,6 @@
 from snakemake.utils import R
 
-configfile: "config.json"
+configfile: "config.yaml"
 
 PROJECT = config["project"] + "/"
 
@@ -13,8 +13,8 @@ rule final:
 
 rule unpack_and_rename:
     input:
-        forward = lambda wildcards: config["data"][wildcards.data]['forward'],
-        reverse = lambda wildcards: config["data"][wildcards.data]['reverse']
+        forward = lambda wildcards: config["data"][wildcards.data]["path"][0],
+        reverse = lambda wildcards: config["data"][wildcards.data]["path"][1]
     output:
         forward="{project}/gunzip/{data}_R1.fastq",
         reverse="{project}/gunzip/{data}_R2.fastq"
@@ -57,7 +57,7 @@ rule pandaseq:
     log: "{project}/pandaseq/{data}_pandaseq.stdout"
     threads: 1
     conda: "envs/pandaseq.yaml"
-    shell: "pandaseq -N -f {input.forward} -r {input.reverse} -p {params.forward_primer} -q {params.reverse_primer} -A rdp_mle -T {threads} -w {output.fasta} -g {log}"
+    shell: "pandaseq -N -f {input.forward} -r {input.reverse} -p {params.forward_primer} -q {params.reverse_primer} -T {threads} -w {output.fasta} -g {log}"
 
 rule fastqc_pandaseq:
     input:
@@ -72,29 +72,6 @@ rule fastqc_pandaseq:
     conda: "envs/fastqc.yaml"
     shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.fastq} > {params.dir}/{log}"
 
-
-#Obsolete
-rule primer_matching:
-    input:
-        "{project}/pandaseq/{data}.fastq"
-    output:
-        "{project}/flexbar/{data}.fastq"
-    params:
-        prefix_forward="flexbar_{data}_forward",
-        prefix_reverse="flexbar_{data}_reverse"
-    log: "{project}/trim/flexbar_{data}.log"
-    run:
-        shell("/data/tools/flexbar/2.5/flexbar -t {params.prefix_forward} -b primers.fasta -r {input} --barcode-min-overlap 10 --barcode-threshold 3 --min-read-length 50 >> {log}")
-        shell("cat {params.prefix_forward}* | fastx_reverse_complement | /data/tools/flexbar/2.5/flexbar -t {params.prefix_reverse} -b primers.fasta --reads - --barcode-trim-end LEFT --barcode-min-overlap 10 --barcode-threshold 3 --min-read-length 50 --barcode-unassigned >> {log}")
-        shell("cat {params.prefix_reverse}* > {output}")
-
-#Obsolete
-rule fastq2fasta:
-    input:
-        fastq = "{project}/pandaseq/{data}.fastq"
-    output:
-        fasta = "{project}/pandaseq/{data}.fasta"
-    shell: "fastq_to_fasta -i {input.fastq} -o {output.fasta}"
 
 # Combine per sample files to a single project file
 rule mergefiles:
@@ -172,14 +149,6 @@ rule cluster_fast:
             cmd = "usearch"
         shell("{cmd} --cluster_fast {input} --usersort -centroids {output.otus} --id 0.97 -sizeout")
 
-# Not longer supported since it is not in bioconda
-rule uparse:
-    input:
-        "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
-    output:
-        otus=protected("{project}/{prog}/{ds}.minsize{minsize}.uparse.fasta")
-    shell: "{USEARCH} -cluster_otus {input} -otus {output.otus} -relabel OTU_ -sizeout"
-
 
 #
 # Chimera checking
@@ -246,13 +215,6 @@ rule biom_otu:
 #
 # Taxonomy
 #
-SINA_VERSION=config['sina_version']
-SILVADB = config['silva_db']
-SINA_MIN_SIM = config['sina_min_sim']
-SILVA_ARB = config['silva_arb']
-
-
-
 rule sina_parallel_edgar:
     input:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
@@ -261,12 +223,14 @@ rule sina_parallel_edgar:
         #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
         log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log",
         align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align",
+    params:
+        silva_arb = config["silva_arb"]
     log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
     priority: -1
     threads: 8
     # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
     conda: "envs/sina.yaml"
-    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin -o {output.align} --outtype fasta --meta-fmt csv --ptdb {SILVA_ARB} --overhang remove --turn all --search --search-db {SILVA_ARB} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
+    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
 
 rule sina_get_taxonomy_from_logfile_edgar:
     input:
