@@ -9,7 +9,8 @@ rule final:
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre ".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre \
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
 
 rule unpack_and_rename:
     input:
@@ -279,3 +280,20 @@ rule biom_tax_sina:
         shell("biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
         shell("biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 
+rule report:
+    input:
+        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom"
+    output:
+        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.report.html"
+    run:
+        from snakemake.utils import report
+
+        report("""
+        An example variant calling workflow
+        ===================================
+
+        Reads were mapped to the Yeast
+        reference genome and variants were called jointly with
+        SAMtools/BCFtools.
+
+        """, output[0], T1=input[0])
