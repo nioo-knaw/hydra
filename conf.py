@@ -89,5 +89,5 @@ def make_config(config, path):
     logging.info("Configuration file written to %s" % config)
 
 if __name__ == "__main__":
-    make_config(config="config.yaml", path="data")
+    make_config(config="config.yaml", path="../data")
   
