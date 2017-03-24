@@ -80,7 +80,7 @@ def make_config(config, path):
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
 
     conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
-    conf["metadata"] = "data/metadata.txt"
+    conf["metadata"] = "../data/metadata.txt"
 
     conf["data"] = samples
 
