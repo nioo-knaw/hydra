@@ -58,7 +58,7 @@ rule pandaseq:
     log: "{project}/pandaseq/{data}_pandaseq.stdout"
     threads: 1
     conda: "envs/pandaseq.yaml"
-    shell: "pandaseq -N -f {input.forward} -r {input.reverse} -T {threads} -w {output.fasta} -g {log}"
+    shell: "pandaseq -N -A rdp_mle -o {params.overlap} -l {params.minlength} -L {params.maxlength} -f {input.forward} -r {input.reverse} -T {threads} -w {output.fasta} -g {log}"
 
 rule fastqc_pandaseq:
     input:

@@ -20,6 +20,7 @@ def get_sample_files(path):
     samples = OrderedDict()
     seen = set()
     for dir_name, sub_dirs, files in os.walk(path):
+        print(dir_name, sub_dirs, files)
         for fname in files:
 
             if ".fastq" in fname or ".fq" in fname:
@@ -89,5 +90,5 @@ def make_config(config, path):
     logging.info("Configuration file written to %s" % config)
 
 if __name__ == "__main__":
-    make_config(config="config.yaml", path="data")
+    make_config(config="config.yaml", path="../data/")
   
