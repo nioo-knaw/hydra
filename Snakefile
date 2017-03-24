@@ -42,29 +42,30 @@ rule fastqc:
         shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log}")
         shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}")
 
-rule pandaseq:
-    input:      
-        forward="{project}/gunzip/{data}_R1.fastq",
-        reverse="{project}/gunzip/{data}_R2.fastq"
-    output:
-        fasta = "{project}/pandaseq/{data}.fasta"
-    params:
-        overlap = config['pandaseq_overlap'],
-        quality = config['pandaseq_quality'],
-        minlength = config['pandaseq_minlength'],
-        maxlength = config['pandaseq_maxlength'],
-        forward_primer = config['forward_primer'],
-        reverse_primer = config['reverse_primer']
-    log: "{project}/pandaseq/{data}_pandaseq.stdout"
-    threads: 1
-    conda: "envs/pandaseq.yaml"
-    shell: "pandaseq -N -A rdp_mle -o {params.overlap} -l {params.minlength} -L {params.maxlength} -f {input.forward} -r {input.reverse} -T {threads} -w {output.fasta} -g {log}"
+if config['mergepairs_pandaseq']:
+    rule pandaseq:
+        input:      
+            forward="{project}/gunzip/{data}_R1.fastq",
+            reverse="{project}/gunzip/{data}_R2.fastq"
+        output:
+            fasta = "{project}/mergepairs/{data}.fasta"
+        params:
+            overlap = config['pandaseq_overlap'],
+            quality = config['pandaseq_quality'],
+            minlength = config['pandaseq_minlength'],
+            maxlength = config['pandaseq_maxlength'],
+            forward_primer = config['forward_primer'],
+            reverse_primer = config['reverse_primer']
+        log: "{project}/mergepairs/{data}_pandaseq.stdout"
+        threads: 1
+        conda: "envs/pandaseq.yaml"
+        shell: "pandaseq -N -A rdp_mle -o {params.overlap} -l {params.minlength} -L {params.maxlength} -f {input.forward} -r {input.reverse} -T {threads} -w {output.fasta} -g {log}"
 
 rule fastqc_pandaseq:
     input:
-        fastq = "{project}/pandaseq/{data}.fastq"
+        fastq = "{project}/mergepairs/{data}.fastq"
     output: 
-        dir="{project}/pandaseq/{data}_fastqc/",zip="{project}/fastqc_pandaseq/{data}_fastqc.zip"
+        dir="{project}/mergepairs/{data}_fastqc/",zip="{project}/fastqc_pandaseq/{data}_fastqc.zip"
     params:
         dir="{project}/fastqc_pandaseq",
         adapters = config["adapters_fasta"]
@@ -73,21 +74,33 @@ rule fastqc_pandaseq:
     conda: "envs/fastqc.yaml"
     shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.fastq} > {params.dir}/{log}"
 
-rule readstat_pandaseq:
+rule readstat_mergepairs:
     input:
-        fasta = "{project}/pandaseq/{data}.fasta"
+        fasta = "{project}/mergepairs/{data}.fasta"
     output:
-        protected("{project}/stats/pandaseq.readstat.{data}.csv")
+        protected("{project}/stats/readstat.{data}.csv")
     log:
-        "{project}/stats/pandaseq.readstat.log"
+        "{project}/stats/readstat.log"
     conda:
         "envs/khmer.yaml"
     shell: "readstats.py {input} --csv -o {output} 2> {log}"
 
+if config['mergepairs_vsearch']:
+    rule mergepairs:
+        input:
+            forward="{project}/gunzip/{data}_R1.fastq",
+            reverse="{project}/gunzip/{data}_R2.fastq"
+        output:
+            fasta = "{project}/mergepairs/{data}.fasta"
+        threads: 20
+        conda: "envs/vsearch.yaml"
+        shell: "vsearch --threads {threads} --fastq_mergepairs {input.forward} --reverse {input.reverse} --fastq_allowmergestagger --fastq_minmergelen 200 --fastaout {output}"
+
+
 # Combine per sample files to a single project file
 rule mergefiles:
     input:
-        fasta = expand(PROJECT + "pandaseq/{data}.fasta", data=config["data"]),
+        fasta = expand(PROJECT + "mergepairs/{data}.fasta", data=config["data"]),
     output: 
         fasta="{project}/mergefiles/{project}.fasta"
     params:
