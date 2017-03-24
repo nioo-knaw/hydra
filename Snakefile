@@ -58,7 +58,7 @@ rule pandaseq:
     log: "{project}/pandaseq/{data}_pandaseq.stdout"
     threads: 1
     conda: "envs/pandaseq.yaml"
-    shell: "pandaseq -N -f {input.forward} -r {input.reverse} -p {params.forward_primer} -q {params.reverse_primer} -T {threads} -w {output.fasta} -g {log}"
+    shell: "pandaseq -N -f {input.forward} -r {input.reverse} -T {threads} -w {output.fasta} -g {log}"
 
 rule fastqc_pandaseq:
     input:
@@ -73,6 +73,16 @@ rule fastqc_pandaseq:
     conda: "envs/fastqc.yaml"
     shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.fastq} > {params.dir}/{log}"
 
+rule readstat_pandaseq:
+    input:
+        fasta = "{project}/pandaseq/{data}.fasta"
+    output:
+        protected("{project}/stats/pandaseq.readstat.{data}.csv")
+    log:
+        "{project}/stats/pandaseq.readstat.log"
+    conda:
+        "envs/khmer.yaml"
+    shell: "readstats.py {input} --csv -o {output} 2> {log}"
 
 # Combine per sample files to a single project file
 rule mergefiles:
@@ -282,7 +292,8 @@ rule biom_tax_sina:
 
 rule report:
     input:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom"
+        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom",
+         css = "report.css"
     output:
         "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.report.html"
     run:
@@ -292,8 +303,22 @@ rule report:
         An example variant calling workflow
         ===================================
 
+        .. contents::
+            :backlinks: none
+
+        Output
+        ------
+
+        Section
+        *******
+
         Reads were mapped to the Yeast
         reference genome and variants were called jointly with
         SAMtools/BCFtools.
 
-        """, output[0], T1=input[0])
+        Methods
+        -------
+
+        Place methods here
+
+        """, output[0], T1=input[0], stylesheet=input.css)
