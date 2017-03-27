@@ -6,6 +6,7 @@ PROJECT = config["project"] + "/"
 
 rule final:
     input: expand("{project}/fastqc_raw/{data}_R1_fastqc.zip \
+                   {project}/stats/readstat.{data}.csv \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
@@ -78,12 +79,20 @@ rule readstat_mergepairs:
     input:
         fasta = "{project}/mergepairs/{data}.fasta"
     output:
-        protected("{project}/stats/readstat.{data}.csv")
+        temporary("{project}/stats/readstat.{data}.csv")
     log:
-        "{project}/stats/readstat.log"
+        "{project}/stats/readstat.{data}.log"
     conda:
         "envs/khmer.yaml"
+    threads: 1
     shell: "readstats.py {input} --csv -o {output} 2> {log}"
+
+rule readstat_all:
+    input:
+        expand("{project}/stats/readstat.{data}.csv", project=config['project'], data=config["data"])
+    output:
+        protected("{project}/stats/readstat.csv")
+    shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
 
 if config['mergepairs_vsearch']:
     rule mergepairs:
@@ -92,7 +101,7 @@ if config['mergepairs_vsearch']:
             reverse="{project}/gunzip/{data}_R2.fastq"
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
-        threads: 20
+        threads: 1
         conda: "envs/vsearch.yaml"
         shell: "vsearch --threads {threads} --fastq_mergepairs {input.forward} --reverse {input.reverse} --fastq_allowmergestagger --fastq_minmergelen 200 --fastaout {output}"
 
@@ -106,6 +115,13 @@ rule mergefiles:
     params:
         samples=config["data"]
     shell: """cat {input}  > {output}"""
+
+rule length:
+    input:
+        "{project}/mergefiles/{project}.fasta"
+    output:
+        protected("{project}/stats/readlength.csv")
+    shell: "awk -f ../src/hydra/seqlen.awk {input} > {output}"
 
 # Dereplication
 rule derep:
