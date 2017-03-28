@@ -7,6 +7,7 @@ PROJECT = config["project"] + "/"
 rule final:
     input: expand("{project}/fastqc_raw/{data}_R1_fastqc.zip \
                    {project}/stats/readstat.{data}.csv \
+                   {project}/stats/report.html \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
@@ -39,9 +40,7 @@ rule fastqc:
     log: "fastqc_raw.log"
     threads: 2
     conda: "envs/fastqc.yaml"
-    run:
-        shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log}")
-        shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}")
+    shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log} && fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}"
 
 if config['mergepairs_pandaseq']:
     rule pandaseq:
@@ -130,7 +129,7 @@ rule derep:
     output:
         temp("{project}/{prog}/{ds}.derep.fasta")
     threads: 8
-    conda: "envs/vsearch.yaml"
+#    conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
@@ -148,7 +147,7 @@ rule sortbysize:
     params:
         minsize="{minsize}"
     threads: 8
-    conda: "envs/vsearch.yaml"
+#    conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
@@ -165,7 +164,7 @@ rule smallmem:
     output:
         otus=protected("{project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta")
     threads: 8
-    conda: "envs/vsearch.yaml"
+#    conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
@@ -180,7 +179,7 @@ rule cluster_fast:
     output:
         otus=protected("{project}/{prog}/{ds}.minsize{minsize}.usearch_cluster_fast.fasta")
     threads: 8
-    conda: "envs/vsearch.yaml"
+#    conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
@@ -201,7 +200,7 @@ rule uchime:
         chimeras="{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.chimeras",
         nonchimeras="{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.fasta"
     log: "{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.uchime.log"
-    conda: "envs/vsearch.yaml"
+ #   conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
@@ -227,7 +226,7 @@ rule mapping:
         reads="{project}/mergefiles/{ds}.fasta"
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.uc"
-    conda: "envs/vsearch.yaml"
+#    conda: "envs/vsearch.yaml"
     run:
         cmd = ""
         if wildcards.prog == "vsearch":
@@ -313,7 +312,7 @@ rule biom_tax_sina:
         taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.qiimeformat.taxonomy",
         biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom"),
         otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.otutable.txt")
-    conda: "envs/biom-format.yaml"
+#    conda: "envs/biom-format.yaml"
     run:
         shell("""cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy}""")
         shell("biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
@@ -321,33 +320,11 @@ rule biom_tax_sina:
 
 rule report:
     input:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom",
-         css = "report.css"
+        readstat = "{project}/stats/readstat.csv"
     output:
-        "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.report.html"
-    run:
-        from snakemake.utils import report
-
-        report("""
-        An example variant calling workflow
-        ===================================
-
-        .. contents::
-            :backlinks: none
-
-        Output
-        ------
-
-        Section
-        *******
-
-        Reads were mapped to the Yeast
-        reference genome and variants were called jointly with
-        SAMtools/BCFtools.
-
-        Methods
-        -------
-
-        Place methods here
-
-        """, output[0], T1=input[0], stylesheet=input.css)
+        "{project}/stats/report.html"
+    params:
+        prefix="{project}/stats/report"
+    conda: "envs/report.yaml"
+    script:
+        "scripts/report.py"
