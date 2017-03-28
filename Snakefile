@@ -11,8 +11,7 @@ rule final:
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
 
 rule unpack_and_rename:
     input:
@@ -129,14 +128,8 @@ rule derep:
     output:
         temp("{project}/{prog}/{ds}.derep.fasta")
     threads: 8
-#    conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-        shell("{cmd} -derep_fulllength {input} -output {output} -sizeout -threads {threads}")
+    conda: "envs/vsearch.yaml"
+    shell: "vsearch -derep_fulllength {input} -output {output} -sizeout -threads {threads}"
 
 # Abundance sort and discard singletons
 rule sortbysize:
@@ -147,15 +140,8 @@ rule sortbysize:
     params:
         minsize="{minsize}"
     threads: 8
-#    conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"
-            shell("{cmd} -sortbysize {input} -fasta_width 0 -output {output} -threads {threads} -minsize {params.minsize}")      
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-            shell("{cmd} -sortbysize {input} -output {output} -minsize {params.minsize}")
+    conda: "envs/vsearch.yaml"
+    shell: "vsearch -sortbysize {input} -output {output} -minsize {params.minsize}"
 
 # Uclust clustering
 rule smallmem:
@@ -164,14 +150,8 @@ rule smallmem:
     output:
         otus=protected("{project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta")
     threads: 8
-#    conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"      
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-        shell("{cmd} --cluster_smallmem {input} --usersort -centroids {output.otus} --id 0.97 -sizeout")
+    conda: "envs/vsearch.yaml"
+    shell: "vsearch --cluster_smallmem {input} --usersort -centroids {output.otus} --id 0.97 -sizeout"
 
 rule cluster_fast:
     input:   
@@ -179,14 +159,8 @@ rule cluster_fast:
     output:
         otus=protected("{project}/{prog}/{ds}.minsize{minsize}.usearch_cluster_fast.fasta")
     threads: 8
-#    conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-        shell("{cmd} --cluster_fast {input} --usersort -centroids {output.otus} --id 0.97 -sizeout")
+    conda: "envs/vsearch.yaml"
+    shell: "vsearch --cluster_fast {input} --usersort -centroids {output.otus} --id 0.97 -sizeout"
 
 
 #
@@ -200,14 +174,8 @@ rule uchime:
         chimeras="{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.chimeras",
         nonchimeras="{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.fasta"
     log: "{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.uchime.log"
- #   conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-        shell("{cmd} --uchime_denovo {input} --nonchimeras {output.nonchimeras} --chimeras {output.chimeras} > {log}")
+    conda: "envs/vsearch.yaml"
+    shell: "vsearch --uchime_denovo {input} --nonchimeras {output.nonchimeras} --chimeras {output.chimeras} > {log}"
 
 # 
 # Mapping
@@ -226,14 +194,8 @@ rule mapping:
         reads="{project}/mergefiles/{ds}.fasta"
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.uc"
-#    conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-        shell("{cmd} -usearch_global {input.reads} -db {input.otus} -strand plus -id 0.97 -uc {output}")
+    conda: "envs/vsearch.yaml"
+    shell: "vsearch -usearch_global {input.reads} -db {input.otus} -strand plus -id 0.97 -uc {output}"
 
 rule create_otutable:
     input:
@@ -312,11 +274,11 @@ rule biom_tax_sina:
         taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.qiimeformat.taxonomy",
         biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom"),
         otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.otutable.txt")
-#    conda: "envs/biom-format.yaml"
-    run:
-        shell("""cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy}""")
-        shell("biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
-        shell("biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
+    conda: "envs/biom-format.yaml"
+    shell: """cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy} && \
+              biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} && \
+              biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
+           """
 
 rule report:
     input:
