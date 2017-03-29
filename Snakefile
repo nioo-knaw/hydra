@@ -41,7 +41,7 @@ rule fastqc:
     conda: "envs/fastqc.yaml"
     shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log} && fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}"
 
-if config['mergepairs_pandaseq']:
+if config['mergepairs'] == 'pandaseq':
     rule pandaseq:
         input:      
             forward="{project}/gunzip/{data}_R1.fastq",
@@ -92,7 +92,7 @@ rule readstat_all:
         protected("{project}/stats/readstat.csv")
     shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
 
-if config['mergepairs_vsearch']:
+if config['mergepairs'] == 'vsearch':
     rule mergepairs:
         input:
             forward="{project}/gunzip/{data}_R1.fastq",
