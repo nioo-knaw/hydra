@@ -6,10 +6,12 @@ PROJECT = config["project"] + "/"
 
 rule final:
     input: expand("{project}/fastqc_raw/{data}_R1_fastqc.zip \
+                   {project}/stats/readstat.{data}.csv \
+                   {project}/stats/report.html \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre ".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
 
 rule unpack_and_rename:
     input:
@@ -37,33 +39,32 @@ rule fastqc:
     log: "fastqc_raw.log"
     threads: 2
     conda: "envs/fastqc.yaml"
-    run:
-        shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log}")
-        shell("fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}")
+    shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log} && fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}"
 
-rule pandaseq:
-    input:      
-        forward="{project}/gunzip/{data}_R1.fastq",
-        reverse="{project}/gunzip/{data}_R2.fastq"
-    output:
-        fasta = "{project}/pandaseq/{data}.fasta"
-    params:
-        overlap = config['pandaseq_overlap'],
-        quality = config['pandaseq_quality'],
-        minlength = config['pandaseq_minlength'],
-        maxlength = config['pandaseq_maxlength'],
-        forward_primer = config['forward_primer'],
-        reverse_primer = config['reverse_primer']
-    log: "{project}/pandaseq/{data}_pandaseq.stdout"
-    threads: 1
-    conda: "envs/pandaseq.yaml"
-    shell: "pandaseq -N -f {input.forward} -r {input.reverse} -p {params.forward_primer} -q {params.reverse_primer} -T {threads} -w {output.fasta} -g {log}"
+if config['mergepairs'] == 'pandaseq':
+    rule pandaseq:
+        input:      
+            forward="{project}/gunzip/{data}_R1.fastq",
+            reverse="{project}/gunzip/{data}_R2.fastq"
+        output:
+            fasta = "{project}/mergepairs/{data}.fasta"
+        params:
+            overlap = config['pandaseq_overlap'],
+            quality = config['pandaseq_quality'],
+            minlength = config['pandaseq_minlength'],
+            maxlength = config['pandaseq_maxlength'],
+            forward_primer = config['forward_primer'],
+            reverse_primer = config['reverse_primer']
+        log: "{project}/mergepairs/{data}_pandaseq.stdout"
+        threads: 1
+        conda: "envs/pandaseq.yaml"
+        shell: "pandaseq -N -A rdp_mle -o {params.overlap} -l {params.minlength} -L {params.maxlength} -f {input.forward} -r {input.reverse} -T {threads} -w {output.fasta} -g {log}"
 
 rule fastqc_pandaseq:
     input:
-        fastq = "{project}/pandaseq/{data}.fastq"
+        fastq = "{project}/mergepairs/{data}.fastq"
     output: 
-        dir="{project}/pandaseq/{data}_fastqc/",zip="{project}/fastqc_pandaseq/{data}_fastqc.zip"
+        dir="{project}/mergepairs/{data}_fastqc/",zip="{project}/fastqc_pandaseq/{data}_fastqc.zip"
     params:
         dir="{project}/fastqc_pandaseq",
         adapters = config["adapters_fasta"]
@@ -72,16 +73,53 @@ rule fastqc_pandaseq:
     conda: "envs/fastqc.yaml"
     shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.fastq} > {params.dir}/{log}"
 
+rule readstat_mergepairs:
+    input:
+        fasta = "{project}/mergepairs/{data}.fasta"
+    output:
+        temporary("{project}/stats/readstat.{data}.csv")
+    log:
+        "{project}/stats/readstat.{data}.log"
+    conda:
+        "envs/khmer.yaml"
+    threads: 1
+    shell: "readstats.py {input} --csv -o {output} 2> {log}"
+
+rule readstat_all:
+    input:
+        expand("{project}/stats/readstat.{data}.csv", project=config['project'], data=config["data"])
+    output:
+        protected("{project}/stats/readstat.csv")
+    shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
+
+if config['mergepairs'] == 'vsearch':
+    rule mergepairs:
+        input:
+            forward="{project}/gunzip/{data}_R1.fastq",
+            reverse="{project}/gunzip/{data}_R2.fastq"
+        output:
+            fasta = "{project}/mergepairs/{data}.fasta"
+        threads: 1
+        conda: "envs/vsearch.yaml"
+        shell: "vsearch --threads {threads} --fastq_mergepairs {input.forward} --reverse {input.reverse} --fastq_allowmergestagger --fastq_minmergelen 200 --fastaout {output}"
+
 
 # Combine per sample files to a single project file
 rule mergefiles:
     input:
-        fasta = expand(PROJECT + "pandaseq/{data}.fasta", data=config["data"]),
+        fasta = expand(PROJECT + "mergepairs/{data}.fasta", data=config["data"]),
     output: 
         fasta="{project}/mergefiles/{project}.fasta"
     params:
         samples=config["data"]
     shell: """cat {input}  > {output}"""
+
+rule length:
+    input:
+        "{project}/mergefiles/{project}.fasta"
+    output:
+        protected("{project}/stats/readlength.csv")
+    shell: "awk -f ../src/hydra/seqlen.awk {input} > {output}"
 
 # Dereplication
 rule derep:
@@ -91,13 +129,7 @@ rule derep:
         temp("{project}/{prog}/{ds}.derep.fasta")
     threads: 8
     conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-        shell("{cmd} -derep_fulllength {input} -output {output} -sizeout -threads {threads}")
+    shell: "vsearch -derep_fulllength {input} -output {output} -sizeout -threads {threads}"
 
 # Abundance sort and discard singletons
 rule sortbysize:
@@ -109,14 +141,7 @@ rule sortbysize:
         minsize="{minsize}"
     threads: 8
     conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"
-            shell("{cmd} -sortbysize {input} -fasta_width 0 -output {output} -threads {threads} -minsize {params.minsize}")      
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-            shell("{cmd} -sortbysize {input} -output {output} -minsize {params.minsize}")
+    shell: "vsearch -sortbysize {input} -output {output} -minsize {params.minsize}"
 
 # Uclust clustering
 rule smallmem:
@@ -126,13 +151,7 @@ rule smallmem:
         otus=protected("{project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta")
     threads: 8
     conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"      
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-        shell("{cmd} --cluster_smallmem {input} --usersort -centroids {output.otus} --id 0.97 -sizeout")
+    shell: "vsearch --cluster_smallmem {input} --usersort -centroids {output.otus} --id 0.97 -sizeout"
 
 rule cluster_fast:
     input:   
@@ -141,13 +160,7 @@ rule cluster_fast:
         otus=protected("{project}/{prog}/{ds}.minsize{minsize}.usearch_cluster_fast.fasta")
     threads: 8
     conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-        shell("{cmd} --cluster_fast {input} --usersort -centroids {output.otus} --id 0.97 -sizeout")
+    shell: "vsearch --cluster_fast {input} --usersort -centroids {output.otus} --id 0.97 -sizeout"
 
 
 #
@@ -162,13 +175,7 @@ rule uchime:
         nonchimeras="{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.fasta"
     log: "{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.uchime.log"
     conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-        shell("{cmd} --uchime_denovo {input} --nonchimeras {output.nonchimeras} --chimeras {output.chimeras} > {log}")
+    shell: "vsearch --uchime_denovo {input} --nonchimeras {output.nonchimeras} --chimeras {output.chimeras} > {log}"
 
 # 
 # Mapping
@@ -188,13 +195,7 @@ rule mapping:
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.uc"
     conda: "envs/vsearch.yaml"
-    run:
-        cmd = ""
-        if wildcards.prog == "vsearch":
-            cmd = "vsearch"
-        elif wildcards.prog == "usearch":
-            cmd = "usearch"
-        shell("{cmd} -usearch_global {input.reads} -db {input.otus} -strand plus -id 0.97 -uc {output}")
+    shell: "vsearch -usearch_global {input.reads} -db {input.otus} -strand plus -id 0.97 -uc {output}"
 
 rule create_otutable:
     input:
@@ -274,8 +275,18 @@ rule biom_tax_sina:
         biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom"),
         otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.otutable.txt")
     conda: "envs/biom-format.yaml"
-    run:
-        shell("""cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy}""")
-        shell("biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta}")
-        shell("biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
+    shell: """cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy} && \
+              biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} && \
+              biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
+           """
 
+rule report:
+    input:
+        readstat = "{project}/stats/readstat.csv"
+    output:
+        "{project}/stats/report.html"
+    params:
+        prefix="{project}/stats/report"
+    conda: "envs/report.yaml"
+    script:
+        "scripts/report.py"

@@ -1,0 +1,9 @@
+channels:
+  - r
+  - forge
+  - bioconda
+dependencies:
+  - rpy2
+  - r-rmarkdown
+  - pandoc
+  - r-plotly

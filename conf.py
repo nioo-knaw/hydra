@@ -20,6 +20,7 @@ def get_sample_files(path):
     samples = OrderedDict()
     seen = set()
     for dir_name, sub_dirs, files in os.walk(path):
+        print(dir_name, sub_dirs, files)
         for fname in files:
 
             if ".fastq" in fname or ".fq" in fname:
@@ -80,7 +81,7 @@ def make_config(config, path):
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
 
     conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
-    conf["metadata"] = "data/metadata.txt"
+    conf["metadata"] = "../data/metadata.txt"
 
     conf["data"] = samples
 
@@ -88,6 +89,6 @@ def make_config(config, path):
         print(yaml.dump(conf, default_flow_style=False), file=f)
     logging.info("Configuration file written to %s" % config)
 
-if __name__ == "__main__":
-    make_config(config="config.yaml", path="data")
-  
+if __name__ == "__main__": 
+    make_config(config="config.yaml", path="../data/")
+
