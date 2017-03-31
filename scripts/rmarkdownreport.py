@@ -6,7 +6,7 @@ __license__ = "MIT"
 import textwrap
 import tempfile
 
-def report(text, prefix):
+def report(text, prefix, **files):
     try:
         import rpy2.robjects as robjects
     except ImportError:

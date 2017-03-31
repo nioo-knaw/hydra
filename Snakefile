@@ -5,8 +5,7 @@ configfile: "config.yaml"
 PROJECT = config["project"] + "/"
 
 rule final:
-    input: expand("{project}/fastqc_raw/{data}_R1_fastqc.zip \
-                   {project}/stats/readstat.{data}.csv \
+    input: expand("{project}/stats/readstat.{data}.csv \
                    {project}/stats/report.html \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
@@ -286,7 +285,8 @@ rule report:
     output:
         "{project}/stats/report.html"
     params:
-        prefix="{project}/stats/report"
+        prefix="{project}/stats/report",
+        mergemethod = config['mergepairs']
     conda: "envs/report.yaml"
     script:
-        "scripts/report.py"
+        "scripts/report.Rmd"
