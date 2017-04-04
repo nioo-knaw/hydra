@@ -25,8 +25,10 @@ When you click the **Knit** button a document will be generated that includes bo
 Reads have been merged with `r snakemake@params[["mergemethod"]]`
 
 ## Plot
-```{r cars}
+```{r cars, message=FALSE, warning=FALSE}
 library(plotly)
 readstat = read.csv('readstat.csv')
-plot_ly(readstat, y=~avg_len, type='scatter', text=~filename)
+p <- ggplot(readstat, aes(y=readstat$avg_len, x = seq(1, length(readstat$avg_len)))) + geom_point()
+
+ggplotly(p)
 ```
