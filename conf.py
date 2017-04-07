@@ -76,11 +76,12 @@ def make_config(config, path):
     conf["pandaseq_quality"] = "25"
     conf["pandaseq_minlength"] = "100"
     conf["pandaseq_maxlength"] = "700"
-
+    
     conf["forward_primer"] = "CCTACGGGNGGCWGCAG"
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
 
     conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
+    conf["mergepairs"] = "vsearch"  
     conf["metadata"] = "../data/metadata.txt"
 
     conf["data"] = samples
@@ -90,5 +91,5 @@ def make_config(config, path):
     logging.info("Configuration file written to %s" % config)
 
 if __name__ == "__main__": 
-    make_config(config="config.yaml", path="../data/")
+    make_config(config="config.yaml", path="../data/Clean/")
 
