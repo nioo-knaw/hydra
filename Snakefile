@@ -6,7 +6,6 @@ PROJECT = config["project"] + "/"
 
 rule final:
     input: expand("{project}/stats/readstat.{data}.csv \
-                   {project}/stats/report.html \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
