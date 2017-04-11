@@ -1,5 +1,5 @@
 ---
-title: "Test Report"
+title: "Hydra report"
 author: "Mattias  de Hollander (m.dehollander@nioo.knaw.nl)"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
@@ -15,11 +15,21 @@ output:
 ---
 
 
-## R Markdown
+# `r snakemake@config$project`
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Info
+Forward primer: `r snakemake@config$forward_primer`
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Reverse primer: `r snakemake@config$reverse_primer`
+
+Silva database: `r basename(snakemake@config$silva_arb)`
+
+### Input files
+
+```{r kable, message=FALSE, warning=FALSE}
+library(knitr)
+kable(snakemake@config$data)
+```
 
 ## Summary
 Reads have been merged with `r snakemake@params[["mergemethod"]]`
