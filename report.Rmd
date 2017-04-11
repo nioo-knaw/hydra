@@ -2,6 +2,8 @@
 title: "Hydra report"
 author: "Mattias  de Hollander (m.dehollander@nioo.knaw.nl)"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
+params:
+    rmd: "report.Rmd"
 output:
   html_document:
     highlight: tango
@@ -45,3 +47,5 @@ ggplotly(p)
 
 ## Files
 <a download="`r basename(snakemake@input$biom)`" href="`r base64enc::dataURI(file = snakemake@input$biom, mime = 'text/csv', encoding = 'base64')`">BIOM file</a>
+
+<a download="report.Rmd" href="`r base64enc::dataURI(file = params$rmd, mime = 'text/rmd', encoding = 'base64')`">R Markdown source file (to produce this document)</a>
