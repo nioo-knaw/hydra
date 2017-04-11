@@ -27,8 +27,11 @@ Reads have been merged with `r snakemake@params[["mergemethod"]]`
 ## Plot
 ```{r cars, message=FALSE, warning=FALSE}
 library(plotly)
-readstat = read.csv('readstat.csv')
+readstat = read.csv(snakemake@input$readstat)
 p <- ggplot(readstat, aes(y=readstat$avg_len, x = seq(1, length(readstat$avg_len)))) + geom_point()
 
 ggplotly(p)
 ```
+
+## Files
+<a download="`r basename(snakemake@input$biom)`" href="`r base64enc::dataURI(file = snakemake@input$biom, mime = 'text/csv', encoding = 'base64')`">BIOM file</a>

@@ -6,4 +6,4 @@ dependencies:
   - rpy2
   - r-rmarkdown
   - pandoc
-  - r-plotly ==4.5.6
+  - r-plotly
