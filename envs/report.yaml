@@ -7,3 +7,4 @@ dependencies:
   - r-rmarkdown
   - pandoc
   - r-plotly
+  - bioconductor-phyloseq

@@ -226,10 +226,10 @@ rule sina_parallel_edgar:
         silva_arb = config["silva_arb"]
     log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
     priority: -1
-    threads: 8
+    threads: 24
     # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
-    conda: "envs/sina.yaml"
-    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
+#    conda: "envs/sina.yaml"
+    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
 
 rule sina_get_taxonomy_from_logfile_edgar:
     input:
@@ -274,7 +274,7 @@ rule biom_tax_sina:
         otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.otutable.txt")
     conda: "envs/biom-format.yaml"
     shell: """cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy} && \
-              biom add-metadata -i {input.biom} -o {output.biom} --output-as-json --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} && \
+              biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} && \
               biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
            """
 

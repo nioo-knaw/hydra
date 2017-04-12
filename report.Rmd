@@ -45,7 +45,50 @@ p <- ggplot(readstat, aes(y=readstat$avg_len, x = seq(1, length(readstat$avg_len
 ggplotly(p)
 ```
 
+
+## phyloseq
+```{r phyloseq, message=FALSE, warning=FALSE}
+library(phyloseq)
+import_biom(snakemake@input$biom)
+```
+
+
 ## Files
-<a download="`r basename(snakemake@input$biom)`" href="`r base64enc::dataURI(file = snakemake@input$biom, mime = 'text/csv', encoding = 'base64')`">BIOM file</a>
+<!--<script src="http://code.jquery.com/jquery-latest.min.js" type="text/javascript"></script>-->
+<script>
+function download(text, name, type) {
+  var file = new Blob([text], {type: type})
+  var a = $('<a id="download-it">Download BIOM file</a>').appendTo('body')
+  a[0].href = URL.createObjectURL(file)
+  a[0].download = name
+}
+function dataURItoBlob(dataURI, callback) {
+    // convert base64 to raw binary data held in a string
+    // doesn't handle URLEncoded DataURIs - see SO answer #6850276 for code that does this
+    var byteString = atob(dataURI.split(',')[1]);
+
+    // separate out the mime component
+    var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
+
+    // write the bytes of the string to an ArrayBuffer
+    var ab = new ArrayBuffer(byteString.length);
+    var ia = new Uint8Array(ab);
+    for (var i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+
+    // write the ArrayBuffer to a blob, and you're done
+    var bb = new Blob([ab]);
+    return bb;
+}
+</script>
+
+<script>
+dataURL = "`r base64enc::dataURI(file = snakemake@input$biom, mime = 'text/csv', encoding = 'base64')`"
+
+download(dataURItoBlob(dataURL), "`r basename(snakemake@input$biom)`", 'text/plain')
+</script>
 
 <a download="report.Rmd" href="`r base64enc::dataURI(file = params$rmd, mime = 'text/rmd', encoding = 'base64')`">R Markdown source file (to produce this document)</a>
+
+
