@@ -1,6 +1,6 @@
 ---
 title: "Hydra report"
-author: "Mattias  de Hollander (m.dehollander@nioo.knaw.nl)"
+author: "Mattias  de Hollander (m.dehollander@nioo.knaw.nl) & Basten Snoek (B.Snoek@nioo.knaw.nl)"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 params:
     rmd: "report.Rmd"
@@ -36,11 +36,30 @@ kable(snakemake@config$data)
 ## Summary
 Reads have been merged with `r snakemake@params[["mergemethod"]]`
 
+```{r set_plot_theme,echo=F}
+plot.theme <- theme(axis.text.x=element_text(size=12,angle=0,colour="black"),
+                    axis.text.y=element_text(size=12,angle=0,colour="black"),
+                    axis.title=element_text(size=18,angle=0,colour="black"),
+                    plot.title=element_text(size=18,angle=0,colour="black"),
+                    text=element_text(margin=margin(1,1,1,1,"mm"),debug=F),
+                    panel.grid.minor=element_line(color="grey95"),
+                    strip.text=element_text(size=16),
+                    panel.border=element_rect(linetype="solid",colour="grey")
+                    ) 
+```
+
+
 ## Plot
 ```{r cars, message=FALSE, warning=FALSE}
 library(plotly)
 readstat = read.csv(snakemake@input$readstat)
-p <- ggplot(readstat, aes(y=readstat$avg_len, x = seq(1, length(readstat$avg_len)))) + geom_point()
+Average_length <- readstat$avg_len
+Sample_no <- seq(1, length(readstat$avg_len))
+to.pl <- data.frame(Average_length,Sample_no)
+
+p <- ggplot(to.pl, aes(y=Average_length, x = Sample_no)) + 
+     geom_point() + 
+     plot.theme
 
 ggplotly(p)
 ```
