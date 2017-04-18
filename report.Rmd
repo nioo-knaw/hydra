@@ -37,6 +37,7 @@ kable(snakemake@config$data)
 Reads have been merged with `r snakemake@params[["mergemethod"]]`
 
 ```{r set_plot_theme,echo=F}
+library(ggplot2)
 plot.theme <- theme(axis.text.x=element_text(size=12,angle=0,colour="black"),
                     axis.text.y=element_text(size=12,angle=0,colour="black"),
                     axis.title=element_text(size=18,angle=0,colour="black"),
