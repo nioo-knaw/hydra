@@ -1,5 +1,6 @@
 channels:
   - bioconda
+  - conda-forge
 dependencies:
   - python ==2.7.12
   - qiime ==1.9.1
