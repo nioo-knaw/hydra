@@ -1,6 +1,6 @@
 channels:
   - r
-  - forge
+  - conda-forge
   - bioconda
 dependencies:
   - rpy2
