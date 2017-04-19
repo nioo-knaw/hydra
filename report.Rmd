@@ -1,6 +1,8 @@
 ---
 title: "Hydra report"
-author: "Mattias  de Hollander (m.dehollander@nioo.knaw.nl) & Basten Snoek (B.Snoek@nioo.knaw.nl)"
+author:
+- "Mattias  de Hollander (m.dehollander@nioo.knaw.nl)"
+- "Basten Snoek (B.Snoek@nioo.knaw.nl)"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 params:
     rmd: "report.Rmd"
