@@ -61,7 +61,7 @@ Sample_no <- seq(1, length(readstat$avg_len))
 to.pl <- data.frame(Average_length,Sample_no)
 
 p <- ggplot(to.pl, aes(y=Average_length, x = Sample_no)) + 
-     geom_point() + 
+     geom_point(col="black") + 
      plot.theme
 
 ggplotly(p)
