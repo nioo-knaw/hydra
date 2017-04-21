@@ -1,4 +1,4 @@
-UNDER DEVELOPMENT! More info soon
+This repo is mirror to github
 
 1. Setup a local project skeleton: https://gitlab.bioinf.nioo.knaw.nl/pipelines/amplicon-project
 

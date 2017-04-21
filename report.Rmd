@@ -1,6 +1,8 @@
 ---
 title: "Hydra report"
-author: "Mattias  de Hollander (m.dehollander@nioo.knaw.nl) & Basten Snoek (B.Snoek@nioo.knaw.nl)"
+author:
+- "Mattias  de Hollander (m.dehollander@nioo.knaw.nl)"
+- "Basten Snoek (B.Snoek@nioo.knaw.nl)"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 params:
     rmd: "report.Rmd"
@@ -59,7 +61,7 @@ Sample_no <- seq(1, length(readstat$avg_len))
 to.pl <- data.frame(Average_length,Sample_no)
 
 p <- ggplot(to.pl, aes(y=Average_length, x = Sample_no)) + 
-     geom_point() + 
+     geom_point(col="black") + 
      plot.theme
 
 ggplotly(p)
