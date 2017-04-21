@@ -109,6 +109,8 @@ dataURL = "`r base64enc::dataURI(file = snakemake@input$biom, mime = 'text/csv',
 download(dataURItoBlob(dataURL), "`r basename(snakemake@input$biom)`", 'text/plain')
 </script>
 
+<a download="readstat.csv" href="`r base64enc::dataURI(file = snakemake@input$readstat, mime = 'text/csv', encoding = 'base64')`">Readstat csv file</a>
+
 <a download="report.Rmd" href="`r base64enc::dataURI(file = params$rmd, mime = 'text/rmd', encoding = 'base64')`">R Markdown source file (to produce this document)</a>
 
 
