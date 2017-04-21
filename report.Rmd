@@ -80,7 +80,7 @@ import_biom(snakemake@input$biom)
 <script>
 function download(text, name, type) {
   var file = new Blob([text], {type: type})
-  var a = $('<a id="download-it">Download BIOM file</a>').appendTo('body')
+  var a = $("#download")
   a[0].href = URL.createObjectURL(file)
   a[0].download = name
 }
@@ -104,6 +104,8 @@ function dataURItoBlob(dataURI, callback) {
     return bb;
 }
 </script>
+
+<a id="download" href="link">Download BIOM file</a>
 
 <script>
 dataURL = "`r base64enc::dataURI(file = snakemake@input$biom, mime = 'text/csv', encoding = 'base64')`"
