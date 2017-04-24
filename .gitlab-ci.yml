@@ -1,2 +1,8 @@
 stages:
-    - dag
+    - rulegraph
+    
+# DAG
+rulegraph:
+  stage: rulegraph
+  script: 
+    - snakemake --rulegraph --use-conda
