@@ -274,8 +274,7 @@ rule biom_tax_sina:
     input:
         taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy",
         biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
-        #meta=config["metadata"]
-        meta="data/metadata.txt"
+        meta=config["metadata"]
     output:
         taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.qiimeformat.taxonomy",
         biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom"),
