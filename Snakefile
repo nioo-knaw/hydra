@@ -1,6 +1,8 @@
 from snakemake.utils import R
+import os
 
-configfile: "config.yaml"
+if os.path.isfile("config.yaml"):
+    configfile: "config.yaml"
 
 PROJECT = config["project"] + "/"
 
@@ -11,10 +13,15 @@ rule final:
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
 
+from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+FTP = FTPRemoteProvider()
+
 rule unpack_and_rename:
     input:
-        forward = lambda wildcards: config["data"][wildcards.data]["path"][0],
-        reverse = lambda wildcards: config["data"][wildcards.data]["path"][1]
+       forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0]) if config["remote"] \
+else lambda wildcards: config["data"][wildcards.data]["path"][0],
+       reverse = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][1]) if config["remote"] \
+else lambda wildcards: config["data"][wildcards.data]["path"][1]
     output:
         forward="{project}/gunzip/{data}_R1.fastq",
         reverse="{project}/gunzip/{data}_R2.fastq"

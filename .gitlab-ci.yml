@@ -13,4 +13,4 @@ stages:
 rulegraph:
   stage: rulegraph
   script: 
-    - snakemake --rulegraph --use-conda
+    - snakemake --configfile tests/config.remote.yaml --rulegraph --use-conda
