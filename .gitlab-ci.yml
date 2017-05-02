@@ -8,9 +8,15 @@ before_script:
   - conda install snakemake
 stages:
     - rulegraph
+    - run
     
 # DAG
 rulegraph:
   stage: rulegraph
   script: 
     - snakemake --configfile tests/config.remote.yaml --rulegraph --use-conda
+
+run:
+  stage: run
+  script:
+    - snakemake --configfile tests/config.remote.yaml --use-conda -j 8
