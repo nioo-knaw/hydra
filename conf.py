@@ -8,6 +8,9 @@ from collections import OrderedDict
 
 # Adapted from: https://github.com/pnnl/atlas/blob/master/atlas/conf.py
 
+ena = True
+host = "ftp.sra.ebi.ac.uk"
+
 # http://stackoverflow.com/a/3675423
 def replace_last(source_string, replace_what, replace_with):
     head, _sep, tail =  source_string.rpartition(replace_what)
@@ -19,8 +22,14 @@ def replace_last(source_string, replace_what, replace_with):
 def get_sample_files(path):
     samples = OrderedDict()
     seen = set()
-    for dir_name, sub_dirs, files in os.walk(path):
-        print(dir_name, sub_dirs, files)
+    walker = ""
+    if ena:
+        import ftputil
+        ftphost = ftputil.FTPHost(host, "anonymous","")
+        walker = ftphost.walk("vol1/ERA651/ERA651425/fastq/")
+    else:
+        walker = os.walk(path)
+    for dir_name, sub_dirs, files in walker:
         for fname in files:
 
             if ".fastq" in fname or ".fq" in fname:
@@ -35,6 +44,7 @@ def get_sample_files(path):
                 sample_id = sample_id.replace("_", "-").replace(" ", "-")
 
                 fq_path = os.path.join(dir_name, fname)
+                if ena: fq_path = os.path.join(host, fq_path)
                 fastq_paths = [fq_path]
 
                 if fq_path in seen: continue
@@ -42,6 +52,7 @@ def get_sample_files(path):
                 if "_R1" in fname or "_r1" in fname or "_1" in fname:
                     fname = replace_last(fname,"_1.","_2.")
                     r2_path = os.path.join(dir_name, fname.replace("_R1", "_R2").replace("_r1", "_r2"))
+                    if ena: r2_path = os.path.join(host, r2_path)
                     if not r2_path == fq_path:
                         seen.add(r2_path)
                         fastq_paths.append(r2_path)
@@ -49,6 +60,7 @@ def get_sample_files(path):
                 if "_R2" in fname or "_r2" in fname or "_2" in fname:
                     fname = replace_last(fname,"_2.","_1.")
                     r1_path = os.path.join(dir_name, fname.replace("_R2", "_R1").replace("_r2", "_r1"))
+                    if ena: r1_path = os.path.join(host, r1_path)
                     if not r1_path == fq_path:
                         seen.add(r1_path)
                         fastq_paths.insert(0, r1_path)
