@@ -7,9 +7,8 @@ PROJECT = config["project"] + "/"
 rule final:
     input: expand("{project}/stats/readstat.{data}.csv \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
-                   {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
+
 
 rule unpack_and_rename:
     input:
@@ -252,7 +251,7 @@ if config["classification"] == "silva":
         input:
             log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
         output:
-            taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy"
+            taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy.txt"
         # Parse the log file from Sina to get the taxonomic classification
         # The csv output does not contain the sequence identifier, thats way this approach is better
         # The first space needs to be replaced in order to keep the space in the taxonomy string (would be splitted otherwise)
@@ -280,13 +279,13 @@ if config["classification"] == "silva":
 
     rule biom_tax_sina:
         input:
-            taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy",
+            taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy.txt",
             biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
             meta=config["metadata"]
         output:
             taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.qiimeformat.taxonomy",
-            biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom"),
-            otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.otutable.txt")
+            biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
+            otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
         conda: "envs/biom-format.yaml"
         shell: """cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy} && \
                   biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} && \
@@ -298,12 +297,12 @@ if config["classification"] == "stampa":
     # If ITSx is not used id needs to be lower!
     rule stampa:
         input:
-            "{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.otus.fasta"
+            "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
         output:
             swarm="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.fasta",
             hits="{project}/{prog}/stampa/hits.{ds}.minsize{minsize}.{clmethod}_usearch_global",
             results="{project}/{prog}/stampa/results.{ds}.minsize{minsize}.{clmethod}_usearch_global",
-            taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.stampa.taxonomy.txt"
+            taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt"
         params:
              stampadir="{project}/{prog}/stampa/"
         run: 
@@ -320,11 +319,11 @@ if config["classification"] == "stampa":
 
     rule biom_tax_stampa:
         input:
-            taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.stampa.taxonomy.txt",
-            biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.biom"
+            taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
+            biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
         output:
-            biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.stampa.biom",
-            otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.stampa.otutable.txt"
+            biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
+            otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
         run:
             shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
             shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
