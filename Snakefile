@@ -18,16 +18,16 @@ FTP = FTPRemoteProvider()
 
 rule unpack_and_rename:
     input:
-       forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0], keep_local=True) if config["remote"] \
+       forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0], keep_local=False) if config["remote"] \
 else lambda wildcards: config["data"][wildcards.data]["path"][0],
-       reverse = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][1], keep_local=True) if config["remote"] \
+       reverse = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][1], keep_local=False) if config["remote"] \
 else lambda wildcards: config["data"][wildcards.data]["path"][1]
     output:
         forward="{project}/gunzip/{data}_R1.fastq",
         reverse="{project}/gunzip/{data}_R2.fastq"
     params:
         prefix="{data}"
-    threads: 2
+    threads: 1
     run: 
         shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
         shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
