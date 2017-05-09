@@ -27,7 +27,7 @@ else lambda wildcards: config["data"][wildcards.data]["path"][1]
         reverse="{project}/gunzip/{data}_R2.fastq"
     params:
         prefix="{data}"
-    threads: 1
+    threads: 1000
     run: 
         shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
         shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")

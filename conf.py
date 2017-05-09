@@ -30,6 +30,9 @@ def get_sample_files(path):
     else:
         walker = os.walk(path)
     for dir_name, sub_dirs, files in walker:
+        if ena:
+            print("WARNING: only using %i of %i samples because of ENA FTP limitations" % (len(files[:60])/2, len(files)/2))
+            files = files[:60]
         for fname in files:
 
             if ".fastq" in fname or ".fq" in fname:
@@ -94,7 +97,7 @@ def make_config(config, path):
 
     conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
     conf["mergepairs"] = "vsearch"  
-    conf["metadata"] = "../data/metadata.txt"
+    conf["metadata"] = "metadata.txt"
     if ena:
         conf["remote"] = True
     else:
