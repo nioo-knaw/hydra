@@ -1,4 +1,4 @@
-image: continuumio/miniconda3:4.1.11
+image: continuumio/miniconda3
 
 before_script:
   - conda config --add channels conda-forge
@@ -11,13 +11,15 @@ stages:
     - run
     
 # DAG
-rulegraph:
-  stage: rulegraph
-  script: 
-    - snakemake --configfile tests/config.remote.yaml --rulegraph --use-conda
+#rulegraph:
+#  stage: rulegraph
+#  script: 
+#    - snakemake --configfile tests/config.remote.yaml --rulegraph --use-conda
 
 run:
   stage: run
   script:
+    - source
+    - echo $SHELL
     - python conf.py
     - snakemake --use-conda -j 8
