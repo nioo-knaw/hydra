@@ -4,6 +4,10 @@ import os
 if os.path.isfile("config.yaml"):
     configfile: "config.yaml"
 
+# For a bash shell, needed on docker images to activate conda environments with source
+# http://snakemake.readthedocs.io/en/stable/project_info/faq.html#i-want-to-configure-the-behavior-of-my-shell-for-all-rules-how-can-that-be-achieved-with-snakemake 
+shell.executable("/bin/bash")
+
 PROJECT = config["project"] + "/"
 
 rule final:

@@ -19,6 +19,5 @@ stages:
 run:
   stage: run
   script:
-    - echo $SHELL
     - python conf.py
     - snakemake --use-conda -j 8
