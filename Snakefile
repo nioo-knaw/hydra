@@ -100,11 +100,27 @@ if config['mergepairs'] == 'vsearch':
         conda: "envs/vsearch.yaml"
         shell: "vsearch --threads {threads} --fastq_mergepairs {input.forward} --reverse {input.reverse} --fastq_allowmergestagger --fastq_minmergelen 200 --fastaout {output}"
 
+if config['its'] == True:
+    rule extract_its:
+            input:
+                    fasta="{project}/mergepairs/{data}.fasta"
+            output:
+                    fasta="{project}/itsx/{data}.ITS2.fasta"
+            params:
+                    basename="{project}/itsx/{data}",
+                    dir="{project}/itsx"
+            log: "itsx.log"
+            threads: 4
+            # TODO: Filter on specific list of organisms? 
+            # Only ITS2 region?
+            shell: "source /data/tools/hmmer/3.0/env.sh; /data/tools/ITSx/1.0.10/ITSx --cpu {threads} --preserve TRUE -i {input.fasta} -o {params.basename} > {params.dir}/{log}"
+
 
 # Combine per sample files to a single project file
 rule mergefiles:
     input:
-        fasta = expand(PROJECT + "mergepairs/{data}.fasta", data=config["data"]),
+        fasta = expand(PROJECT + "itsx/{data}.ITS2.fasta", data=config["data"]) if config['its'] \
+                else expand(PROJECT + "mergepairs/{data}.fasta", data=config["data"]),
     output: 
         fasta="{project}/mergefiles/{project}.fasta"
     params:
@@ -118,26 +134,10 @@ rule length:
         protected("{project}/stats/readlength.csv")
     shell: "awk -f ../src/hydra/seqlen.awk {input} > {output}"
 
-if config['its'] == True:
-    rule extract_its:
-            input:
-                    fasta="{project}/mergefiles/{project}.fasta"
-            output:
-                    fasta="{project}/itsx/{project}.ITS2.fasta"
-            params:
-                    basename="{project}/itsx/{project}",
-                    dir="{project}/itsx"
-            log: "itsx.log"
-            threads: 16
-            # TODO: Filter on specific list of organisms? 
-            # Only ITS2 region?
-            shell: "source /data/tools/hmmer/3.0/env.sh; /data/tools/ITSx/1.0.10/ITSx --cpu {threads} --preserve TRUE -i {input.fasta} -o {params.basename} > {params.dir}/{log}"
-
 # Dereplication
 rule derep:
     input:
-        "{project}/mergefiles/{ds}.fasta" if not config['its'] \
-        else "{project}/itsx/{project}.ITS2.fasta"
+        "{project}/mergefiles/{ds}.fasta"
     output:
         temp("{project}/{prog}/{ds}.derep.fasta")
     threads: 8
