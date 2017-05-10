@@ -31,8 +31,8 @@ def get_sample_files(path):
         walker = os.walk(path)
     for dir_name, sub_dirs, files in walker:
         if ena:
-            print("WARNING: only using %i of %i samples because of ENA FTP limitations" % (len(files[:20])/2, len(files)/2))
-            files = files[:20]
+#            print("WARNING: only using %i of %i samples because of ENA FTP limitations" % (len(files[:20])/2, len(files)/2))
+            files = files
         for fname in files:
 
             if ".fastq" in fname or ".fq" in fname:
