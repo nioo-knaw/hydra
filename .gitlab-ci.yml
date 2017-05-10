@@ -1,3 +1,5 @@
+image: continuumio/miniconda3:4.1.11
+
 before_script:
   - conda config --add channels conda-forge
   - conda config --add channels defaults
