@@ -9,7 +9,8 @@ rule final:
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
                    {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre \
+                   {project}/stats/report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
 
 rule unpack_and_rename:
     input:
