@@ -9,6 +9,7 @@ before_script:
   - git clone https://bitbucket.org/snakemake/snakemake.git
   - cd snakemake
   - git checkout ct-ftp-close-every-time-option
+  - pip install virtualenv
   - virtualenv -p python3 .venv
   - source .venv/bin/activate
   - python setup.py install
