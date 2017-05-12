@@ -8,7 +8,7 @@ before_script:
 #  - conda install snakemake
   - git clone https://bitbucket.org/snakemake/snakemake.git
   - cd snakemake
-  - checkout ct-ftp-close-every-time-option
+  - git checkout ct-ftp-close-every-time-option
   - python setup.py install
 
 stages:
