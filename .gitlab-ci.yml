@@ -11,8 +11,8 @@ before_script:
   - git checkout ct-ftp-close-every-time-option
 #  - conda env create -f environment.yml -n snakemake-testing
 #  - pip install -e .
-  - python setup.py install
 #  - source activate snakemake-testing
+  - python setup.py install
   - pip install pyyaml ftputil
   - cd ..
 
@@ -30,5 +30,5 @@ run:
   stage: run
   script:
 #    - source activate snakemake-testing
-#    - python conf.py
-    - snakemake --configfile tests/config.remote.yaml --use-conda -j 8
+    - python conf.py
+    - snakemake  --use-conda -j 8
