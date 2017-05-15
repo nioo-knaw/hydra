@@ -12,6 +12,7 @@ before_script:
   - conda env create -f environment.yml -n snakemake-testing
   - pip install -e .
   - source activate snakemake-testing
+  - pip install python-yaml
   - cd ..
 
 stages:
