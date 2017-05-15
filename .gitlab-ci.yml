@@ -28,5 +28,6 @@ stages:
 run:
   stage: run
   script:
+    - source activate snakemake-testing
     - python conf.py
     - snakemake --use-conda -j 8
