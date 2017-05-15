@@ -9,10 +9,11 @@ before_script:
   - git clone https://bitbucket.org/snakemake/snakemake.git
   - cd snakemake
   - git checkout ct-ftp-close-every-time-option
-  - conda env create -f environment.yml -n snakemake-testing
-  - pip install -e .
-  - source activate snakemake-testing
-  - pip install PyYAML
+#  - conda env create -f environment.yml -n snakemake-testing
+#  - pip install -e .
+  - python setup.py install
+#  - source activate snakemake-testing
+#  - pip install PyYAML
   - cd ..
 
 stages:
@@ -28,7 +29,6 @@ stages:
 run:
   stage: run
   script:
-    - source activate snakemake-testing
+#    - source activate snakemake-testing
 #    - python conf.py
-    - echo $PYTHONPATH
     - snakemake --configfile tests/config.remote.yaml --use-conda -j 8
