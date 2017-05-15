@@ -30,4 +30,5 @@ run:
   script:
     - source activate snakemake-testing
 #    - python conf.py
+    - echo $PYTHONPATH
     - snakemake --configfile tests/config.remote.yaml --use-conda -j 8
