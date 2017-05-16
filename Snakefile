@@ -305,6 +305,8 @@ if config["classification"] == "stampa":
             taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt"
         params:
              stampadir="{project}/{prog}/stampa/"
+             db = config['stampa_db']
+        conda: "envs/vsearch.yaml"
         run: 
             import os
             pwd = os.getcwd()
@@ -312,7 +314,7 @@ if config["classification"] == "stampa":
             # Create STAMPA compatible input
             # Replace underscore in otu names and add fake abundance information
             shell("sed 's/_/:/' {input} | awk '/^>/ {{$0=\">\" substr($0,2) \"_1\"}}1' > {output.swarm}") 
-            shell("/data/tools/vsearch/1.11.1/bin/vsearch --usearch_global {output.swarm}    --threads 16     --dbmask none     --qmask none     --rowlen 0     --notrunclabels     --userfields query+id1+target     --maxaccepts 0     --maxrejects 32  --top_hits_only  --output_no_hits     --db /data/db/unite/itsx.ITS2.stampa.fasta     --id 0.5     --iddef 1     --userout {output.hits}")
+            shell("vsearch --usearch_global {output.swarm}    --threads 16     --dbmask none     --qmask none     --rowlen 0     --notrunclabels     --userfields query+id1+target     --maxaccepts 0     --maxrejects 32  --top_hits_only  --output_no_hits     --db {params.db}     --id 0.5     --iddef 1     --userout {output.hits}")
             shell("python2.7 stampa_merge.py {stampadir}")
             # Convert back to qiime/biom compatible format
             shell("sed 's/:/_/' {output.results} | sed 's/|/;/g' | cut -f 1,4 > {output.taxonomy}")
@@ -324,9 +326,10 @@ if config["classification"] == "stampa":
         output:
             biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
             otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
+        conda: "envs/biom-format.yaml"
         run:
-            shell("/data/tools/qiime/1.9/qiime1.9/bin/biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
-            shell("/data/tools/qiime/1.9/qiime1.9/bin/biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
+            shell("biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
+            shell("biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 
 rule report:
     input:
