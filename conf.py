@@ -77,8 +77,10 @@ def get_sample_files(path):
                 samples[sample_id] = {'path': fastq_paths }
     return samples
 
-
-def make_config(config, path):
+@click.command()
+@click.option('--config', default="config.yaml", help='number of greetings')
+@click.option('--path')
+def make_config(config,path):
     """Write the file `config` and complete the sample names and paths for all files in `path`."""
     represent_dict_order = lambda self, data:  self.represent_mapping('tag:yaml.org,2002:map', data.items())
     yaml.add_representer(OrderedDict, represent_dict_order)
@@ -113,5 +115,5 @@ def make_config(config, path):
     logging.info("Configuration file written to %s" % config)
 
 if __name__ == "__main__": 
-    make_config(config="config.yaml", path="../data/Clean/")
+    make_config()
 
