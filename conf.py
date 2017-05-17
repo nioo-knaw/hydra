@@ -5,11 +5,15 @@ import os
 import tempfile
 import yaml
 from collections import OrderedDict
+import click
 
 # Adapted from: https://github.com/pnnl/atlas/blob/master/atlas/conf.py
 
+
 ena = True
 host = "ftp.sra.ebi.ac.uk"
+project = "PRJEB14409"
+#project = "PRJNA319605"
 
 # http://stackoverflow.com/a/3675423
 def replace_last(source_string, replace_what, replace_with):
@@ -19,24 +23,26 @@ def replace_last(source_string, replace_what, replace_with):
     else: 
         return head + replace_with + tail
 
+def get_ena(project):
+    from urllib import request
+    samples = request.urlopen("http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession=%s&result=read_run&fields=fastq_ftp" % project).readlines()[1:]
+    for sample in samples:
+        for fastq in sample.strip().split(b';'):
+            dirpath = os.path.dirname(fastq).decode("utf-8")
+            filename = os.path.basename(fastq).decode("utf-8")
+            yield (dirpath,"",[filename])
+
 def get_sample_files(path):
     samples = OrderedDict()
     seen = set()
     walker = ""
     if ena:
-        import ftputil
-        ftphost = ftputil.FTPHost(host, "anonymous","")
-        walker = ftphost.walk("vol1/ERA651/ERA651425/fastq/")
+        walker = get_ena(project)
     else:
         walker = os.walk(path)
     for dir_name, sub_dirs, files in walker:
-        if ena:
-#            print("WARNING: only using %i of %i samples because of ENA FTP limitations" % (len(files[:20])/2, len(files)/2))
-            files = files
         for fname in files:
-
             if ".fastq" in fname or ".fq" in fname:
-
                 sample_id = fname.partition(".fastq")[0]
                 if ".fq" in sample_id:
                     sample_id = fname.partition(".fq")[0]
@@ -47,7 +53,6 @@ def get_sample_files(path):
                 sample_id = sample_id.replace("_", "-").replace(" ", "-")
 
                 fq_path = os.path.join(dir_name, fname)
-                if ena: fq_path = os.path.join(host, fq_path)
                 fastq_paths = [fq_path]
 
                 if fq_path in seen: continue
@@ -55,7 +60,6 @@ def get_sample_files(path):
                 if "_R1" in fname or "_r1" in fname or "_1" in fname:
                     fname = replace_last(fname,"_1.","_2.")
                     r2_path = os.path.join(dir_name, fname.replace("_R1", "_R2").replace("_r1", "_r2"))
-                    if ena: r2_path = os.path.join(host, r2_path)
                     if not r2_path == fq_path:
                         seen.add(r2_path)
                         fastq_paths.append(r2_path)
@@ -63,7 +67,6 @@ def get_sample_files(path):
                 if "_R2" in fname or "_r2" in fname or "_2" in fname:
                     fname = replace_last(fname,"_2.","_1.")
                     r1_path = os.path.join(dir_name, fname.replace("_R2", "_R1").replace("_r2", "_r1"))
-                    if ena: r1_path = os.path.join(host, r1_path)
                     if not r1_path == fq_path:
                         seen.add(r1_path)
                         fastq_paths.insert(0, r1_path)
