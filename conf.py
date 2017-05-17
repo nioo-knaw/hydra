@@ -84,6 +84,8 @@ def make_config(config, path):
     conf["mergepairs"] = "vsearch"  
     conf["metadata"] = "../data/metadata.txt"
 
+    conf["stampa_db" = "/data/db/unite/itsx.ITS2.stampa.fasta"
+
     conf["data"] = samples
 
     with open(config, "w") as f:

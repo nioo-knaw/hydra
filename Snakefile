@@ -7,9 +7,8 @@ PROJECT = config["project"] + "/"
 rule final:
     input: expand("{project}/stats/readstat.{data}.csv \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
-                   {project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
+
 
 rule unpack_and_rename:
     input:
@@ -101,11 +100,27 @@ if config['mergepairs'] == 'vsearch':
         conda: "envs/vsearch.yaml"
         shell: "vsearch --threads {threads} --fastq_mergepairs {input.forward} --reverse {input.reverse} --fastq_allowmergestagger --fastq_minmergelen 200 --fastaout {output}"
 
+if config['its'] == True:
+    rule extract_its:
+            input:
+                    fasta="{project}/mergepairs/{data}.fasta"
+            output:
+                    fasta="{project}/itsx/{data}.ITS2.fasta"
+            params:
+                    basename="{project}/itsx/{data}",
+                    dir="{project}/itsx"
+            log: "itsx.log"
+            threads: 4
+            # TODO: Filter on specific list of organisms? 
+            # Only ITS2 region?
+            shell: "source /data/tools/hmmer/3.0/env.sh; /data/tools/ITSx/1.0.10/ITSx --cpu {threads} --preserve TRUE -i {input.fasta} -o {params.basename} > {params.dir}/{log}"
+
 
 # Combine per sample files to a single project file
 rule mergefiles:
     input:
-        fasta = expand(PROJECT + "mergepairs/{data}.fasta", data=config["data"]),
+        fasta = expand(PROJECT + "itsx/{data}.ITS2.fasta", data=config["data"]) if config['its'] \
+                else expand(PROJECT + "mergepairs/{data}.fasta", data=config["data"]),
     output: 
         fasta="{project}/mergefiles/{project}.fasta"
     params:
@@ -122,7 +137,7 @@ rule length:
 # Dereplication
 rule derep:
     input:
-        "{project}/mergefiles/{ds}.fasta",
+        "{project}/mergefiles/{ds}.fasta"
     output:
         temp("{project}/{prog}/{ds}.derep.fasta")
     threads: 8
@@ -214,69 +229,107 @@ rule biom_otu:
 #
 # Taxonomy
 #
-rule sina_parallel_edgar:
-    input:
-        "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
-    output:
-        #align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
-        #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
-        log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log",
-        align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align",
-    params:
-        silva_arb = config["silva_arb"]
-    log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
-    priority: -1
-    threads: 24
-    # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
-#    conda: "envs/sina.yaml"
-    shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
+if config["classification"] == "silva":
+    rule sina_parallel_edgar:
+        input:
+            "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+        output:
+            #align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
+            #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
+            log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log",
+            align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align",
+        params:
+            silva_arb = config["silva_arb"]
+        log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
+        priority: -1
+        threads: 24
+        # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
+    #    conda: "envs/sina.yaml"
+        shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
 
-rule sina_get_taxonomy_from_logfile_edgar:
-    input:
-        log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
-    output:
-        taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy"
-    # Parse the log file from Sina to get the taxonomic classification
-    # The csv output does not contain the sequence identifier, thats way this approach is better
-    # The first space needs to be replaced in order to keep the space in the taxonomy string (would be splitted otherwise)
-    # Brackets are escaped by an extra bracket, because they are internaly recognised by Snakemake
-    shell: "cat {input.log} | sed 's/ /|/1' | awk -F '|'  '/^sequence_identifier:/ {{id=$2}} /^lca_tax_slv:/{{split(id,a,\" \"); print a[1] \"\t\" $2}}' | tr ' ' '_' > {output.taxonomy}"
+    rule sina_get_taxonomy_from_logfile_edgar:
+        input:
+            log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
+        output:
+            taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy.txt"
+        # Parse the log file from Sina to get the taxonomic classification
+        # The csv output does not contain the sequence identifier, thats way this approach is better
+        # The first space needs to be replaced in order to keep the space in the taxonomy string (would be splitted otherwise)
+        # Brackets are escaped by an extra bracket, because they are internaly recognised by Snakemake
+        shell: "cat {input.log} | sed 's/ /|/1' | awk -F '|'  '/^sequence_identifier:/ {{id=$2}} /^lca_tax_slv:/{{split(id,a,\" \"); print a[1] \"\t\" $2}}' | tr ' ' '_' > {output.taxonomy}"
 
-# Tree
-rule filter_alignment:
-    input:
-        align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align"
-    output:
-        filtered="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina_pfiltered.fasta"
-    params:
-        outdir="{project}/{prog}/sina/"
-    conda: "envs/qiime.yaml"
-    shell: "filter_alignment.py -i {input.align} -o {params.outdir} --suppress_lane_mask_filter --entropy_threshold 0.10"
+    # Tree
+    rule filter_alignment:
+        input:
+            align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align"
+        output:
+            filtered="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina_pfiltered.fasta"
+        params:
+            outdir="{project}/{prog}/sina/"
+        conda: "envs/qiime.yaml"
+        shell: "filter_alignment.py -i {input.align} -o {params.outdir} --suppress_lane_mask_filter --entropy_threshold 0.10"
 
-rule make_tree:
-    input:
-        align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina_pfiltered.fasta"
-    output:
-        tree="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre"
-    conda: "envs/qiime.yaml"
-    shell: "make_phylogeny.py -i {input.align} -t fasttree -o {output.tree}"
+    rule make_tree:
+        input:
+            align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina_pfiltered.fasta"
+        output:
+            tree="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.tre"
+        conda: "envs/qiime.yaml"
+        shell: "make_phylogeny.py -i {input.align} -t fasttree -o {output.tree}"
 
+    rule biom_tax_sina:
+        input:
+            taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy.txt",
+            biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
+            meta=config["metadata"]
+        output:
+            taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.qiimeformat.taxonomy",
+            biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
+            otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
+        conda: "envs/biom-format.yaml"
+        shell: """cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy} && \
+                  biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} && \
+                  biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
+               """
 
+if config["classification"] == "stampa":
+    # Add params!
+    # If ITSx is not used id needs to be lower!
+    rule stampa:
+        input:
+            "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+        output:
+            swarm="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.fasta",
+            hits="{project}/{prog}/stampa/hits.{ds}.minsize{minsize}.{clmethod}_usearch_global",
+            results="{project}/{prog}/stampa/results.{ds}.minsize{minsize}.{clmethod}_usearch_global",
+            taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt"
+        params:
+             stampadir="{project}/{prog}/stampa/"
+             db = config['stampa_db']
+        conda: "envs/vsearch.yaml"
+        run: 
+            import os
+            pwd = os.getcwd()
+            stampadir = pwd + "/" + params.stampadir
+            # Create STAMPA compatible input
+            # Replace underscore in otu names and add fake abundance information
+            shell("sed 's/_/:/' {input} | awk '/^>/ {{$0=\">\" substr($0,2) \"_1\"}}1' > {output.swarm}") 
+            shell("vsearch --usearch_global {output.swarm}    --threads 16     --dbmask none     --qmask none     --rowlen 0     --notrunclabels     --userfields query+id1+target     --maxaccepts 0     --maxrejects 32  --top_hits_only  --output_no_hits     --db {params.db}     --id 0.5     --iddef 1     --userout {output.hits}")
+            shell("python2.7 stampa_merge.py {stampadir}")
+            # Convert back to qiime/biom compatible format
+            shell("sed 's/:/_/' {output.results} | sed 's/|/;/g' | cut -f 1,4 > {output.taxonomy}")
 
-rule biom_tax_sina:
-    input:
-        taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy",
-        biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
-        meta=config["metadata"]
-    output:
-        taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.qiimeformat.taxonomy",
-        biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom"),
-        otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.otutable.txt")
-    conda: "envs/biom-format.yaml"
-    shell: """cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy} && \
-              biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} && \
-              biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
-           """
+    rule biom_tax_stampa:
+        input:
+            taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
+            biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
+        output:
+            biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
+            otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
+        conda: "envs/biom-format.yaml"
+        run:
+            shell("biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
+            shell("biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
 
 rule report:
     input:
