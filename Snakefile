@@ -1,4 +1,7 @@
 from snakemake.utils import R
+from snakemake.utils import min_version
+
+min_version("3.12") # R Markdown reports have been introduced in Snakemake 3.12
 
 configfile: "config.yaml"
 
