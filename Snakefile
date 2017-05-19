@@ -3,7 +3,8 @@ from snakemake.utils import min_version
 
 min_version("3.12") # R Markdown reports have been introduced in Snakemake 3.12
 
-configfile: "config.yaml"
+if os.path.isfile("config.yaml"):
+    configfile: "config.yaml"
 
 PROJECT = config["project"] + "/"
 
@@ -307,7 +308,7 @@ if config["classification"] == "stampa":
             results="{project}/{prog}/stampa/results.{ds}.minsize{minsize}.{clmethod}_usearch_global",
             taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt"
         params:
-             stampadir="{project}/{prog}/stampa/"
+             stampadir="{project}/{prog}/stampa/",
              db = config['stampa_db']
         conda: "envs/vsearch.yaml"
         run: 
