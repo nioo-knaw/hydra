@@ -84,7 +84,7 @@ def make_config(config, path):
     conf["mergepairs"] = "vsearch"  
     conf["metadata"] = "../data/metadata.txt"
 
-    conf["clustering"] =  "swarm"
+    conf["clustering"] =  "usearch_smallmem"
     conf["classification"] = "stampa"
 
     conf["stampa_db" = "/data/db/unite/itsx.ITS2.stampa.fasta"
