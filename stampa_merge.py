@@ -43,7 +43,7 @@ def main():
     directory = sys.argv[1]
     if not os.path.exists(directory):
         sys.exit("ERROR: directory %s not found!" % directory)
-    os.chdir(directory)
+    #os.chdir(directory)
 
     # List files
     files = [f for f in os.listdir(directory) if f.startswith("hits.")]
@@ -56,8 +56,8 @@ def main():
         taxonomies = list()
         accessions = list()
         output_file = input_file.replace("hits.", "results.")
-        with open(input_file, "rb") as input_file:
-            with open(output_file, "wb") as output_file:
+        with open(directory + input_file, "rb") as input_file:
+            with open(directory + output_file, "wb") as output_file:
                 for line in input_file:
                     amplicon, identity, hit = line.strip().split("\t")
                     amplicon, abundance = amplicon.split("_")
