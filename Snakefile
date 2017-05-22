@@ -1,5 +1,6 @@
 from snakemake.utils import R
 from snakemake.utils import min_version
+import os
 
 min_version("3.12") # R Markdown reports have been introduced in Snakemake 3.12
 
@@ -10,8 +11,8 @@ PROJECT = config["project"] + "/"
 
 rule final:
     input: expand("{project}/stats/readstat.{data}.csv \
-                   {project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem") 
+                   {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="swarm") 
 
 
 rule unpack_and_rename:
@@ -119,7 +120,6 @@ if config['its'] == True:
             # Only ITS2 region?
             shell: "source /data/tools/hmmer/3.0/env.sh; /data/tools/ITSx/1.0.10/ITSx --cpu {threads} --preserve TRUE -i {input.fasta} -o {params.basename} > {params.dir}/{log}"
 
-
 # Combine per sample files to a single project file
 rule mergefiles:
     input:
@@ -143,7 +143,7 @@ rule derep:
     input:
         "{project}/mergefiles/{ds}.fasta"
     output:
-        temp("{project}/{prog}/{ds}.derep.fasta")
+        temporary("{project}/{prog}/{ds}.derep.fasta")
     threads: 8
     conda: "envs/vsearch.yaml"
     shell: "vsearch -derep_fulllength {input} -output {output} -sizeout -threads {threads}"
@@ -153,32 +153,48 @@ rule sortbysize:
     input:
         "{project}/{prog}/{ds}.derep.fasta"
     output:
-        temp("{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta")
+        temporary("{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta")
     params:
         minsize="{minsize}"
     threads: 8
     conda: "envs/vsearch.yaml"
     shell: "vsearch -sortbysize {input} -output {output} -minsize {params.minsize}"
 
-# Uclust clustering
-rule smallmem:
-    input:
-        "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
-    output:
-        otus=protected("{project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta")
-    threads: 8
-    conda: "envs/vsearch.yaml"
-    shell: "vsearch --cluster_smallmem {input} --usersort -centroids {output.otus} --id 0.97 -sizeout"
+if config['clustering'] == "usearch_smallmem":
+    # Uclust clustering
+    rule smallmem:
+        input:
+	        "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
+        output:
+	        otus=protected("{project}/{prog}/clst/{ds}.minsize{minsize}.usearch_smallmem.fasta")
+        threads: 8
+        conda: "envs/vsearch.yaml"
+        shell: "vsearch --cluster_smallmem {input} --usersort -centroids {output.otus} --id 0.97 -sizeout"
 
-rule cluster_fast:
-    input:   
-        "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
-    output:
-        otus=protected("{project}/{prog}/{ds}.minsize{minsize}.usearch_cluster_fast.fasta")
-    threads: 8
-    conda: "envs/vsearch.yaml"
-    shell: "vsearch --cluster_fast {input} --usersort -centroids {output.otus} --id 0.97 -sizeout"
+#
+# Swarm
+#
+if config['clustering'] == "swarm":
 
+    # Swarm
+    rule swarm:
+        input: 
+            "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
+        output:
+            swarms="{project}/{prog}/{ds}.minsize{minsize}.swarm.swarms",
+            stats="{project}/{prog}/{ds}.minsize{minsize}.swarm.stats"
+        params: d="1" 
+        threads: 16
+        conda: "envs/swarm.yaml"
+        shell: "swarm -d {params.d} -t {threads} -z -u uclust.out -s {output.stats} < {input}  > {output.swarms}"
+
+    rule swarm_get_seed:
+        input: 
+            swarms="{project}/{prog}/{ds}.minsize{minsize}.swarm.swarms",
+            amplicons="{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
+        output:
+            seeds="{project}/{prog}/clst/{ds}.minsize{minsize}.swarm.fasta"
+        shell: "SEEDS=$(mktemp); cut -d ' ' -f 1 {input.swarms} | sed -e 's/^/>/' > '${{SEEDS}}'; grep -A 1 -F -f '${{SEEDS}}' {input.amplicons} | sed -e '/^--$/d' > {output.seeds}"
 
 #
 # Chimera checking
@@ -292,13 +308,11 @@ if config["classification"] == "silva":
             otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
         conda: "envs/biom-format.yaml"
         shell: """cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy} && \
-                  biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} && \
+                  biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} --output-as-json && \
                   biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
                """
 
 if config["classification"] == "stampa":
-    # Add params!
-    # If ITSx is not used id needs to be lower!
     rule stampa:
         input:
             "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
@@ -306,22 +320,20 @@ if config["classification"] == "stampa":
             swarm="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.fasta",
             hits="{project}/{prog}/stampa/hits.{ds}.minsize{minsize}.{clmethod}_usearch_global",
             results="{project}/{prog}/stampa/results.{ds}.minsize{minsize}.{clmethod}_usearch_global",
-            taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt"
+            taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
         params:
              stampadir="{project}/{prog}/stampa/",
              db = config['stampa_db']
         conda: "envs/vsearch.yaml"
-        run: 
-            import os
-            pwd = os.getcwd()
-            stampadir = pwd + "/" + params.stampadir
-            # Create STAMPA compatible input
-            # Replace underscore in otu names and add fake abundance information
-            shell("sed 's/_/:/' {input} | awk '/^>/ {{$0=\">\" substr($0,2) \"_1\"}}1' > {output.swarm}") 
-            shell("vsearch --usearch_global {output.swarm}    --threads 16     --dbmask none     --qmask none     --rowlen 0     --notrunclabels     --userfields query+id1+target     --maxaccepts 0     --maxrejects 32  --top_hits_only  --output_no_hits     --db {params.db}     --id 0.5     --iddef 1     --userout {output.hits}")
-            shell("python2.7 stampa_merge.py {stampadir}")
-            # Convert back to qiime/biom compatible format
-            shell("sed 's/:/_/' {output.results} | sed 's/|/;/g' | cut -f 1,4 > {output.taxonomy}")
+        threads: 16
+        # Create STAMPA compatible input
+        # Replace underscore in otu names and add fake abundance information
+        shell:"""
+            sed 's/_/:/' {input} | awk '/^>/ {{$0=\">\" substr($0,2) \"_1\"}}1' > {output.swarm} && \
+            vsearch --usearch_global {output.swarm}    --threads {threads}     --dbmask none     --qmask none     --rowlen 0     --notrunclabels     --userfields query+id1+target     --maxaccepts 0     --maxrejects 32  --top_hits_only  --output_no_hits     --db {params.db}     --id 0.5     --iddef 1     --userout {output.hits} && \
+            python2.7 stampa_merge.py {params.stampadir} && \
+            sed 's/:/_/' {output.results} | sed 's/|/;/g' | cut -f 1,4 > {output.taxonomy}
+            """
 
     rule biom_tax_stampa:
         input:
@@ -331,9 +343,9 @@ if config["classification"] == "stampa":
             biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
             otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
         conda: "envs/biom-format.yaml"
-        run:
-            shell("biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence")
-            shell("biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}")
+        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --output-as-json && \
+                  biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
+               """
 
 rule report:
     input:
