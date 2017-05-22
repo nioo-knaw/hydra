@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
+  - r == 3.3.3
   - rpy2
   - r-rmarkdown
   - pandoc

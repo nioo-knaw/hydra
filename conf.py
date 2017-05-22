@@ -108,6 +108,11 @@ def make_config(config,path):
     else:
         conf["remote"] = False
 
+    conf["clustering"] =  "usearch_smallmem"
+    conf["classification"] = "stampa"
+
+    conf["stampa_db" = "/data/db/unite/itsx.ITS2.stampa.fasta"
+
     conf["data"] = samples
 
     with open(config, "w") as f:
