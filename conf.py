@@ -108,6 +108,7 @@ def make_config(config,path):
     else:
         conf["remote"] = False
 
+    conf["its"] = False 
     conf["clustering"] =  "usearch_smallmem"
     conf["classification"] = "stampa"
 
