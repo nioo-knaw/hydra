@@ -2,7 +2,7 @@ from snakemake.utils import R
 from snakemake.utils import min_version
 import os
 
-min_version("3.12") # R Markdown reports have been introduced in Snakemake 3.12
+#min_version("3.12") # R Markdown reports have been introduced in Snakemake 3.12
 
 if os.path.isfile("config.yaml"):
     configfile: "config.yaml"
