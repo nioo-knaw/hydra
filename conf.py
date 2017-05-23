@@ -79,7 +79,7 @@ def get_sample_files(path):
 
 @click.command()
 @click.option('--config', default="config.yaml", help='number of greetings')
-@click.option('--path')
+@click.option('--path', default="../data", help='path to data folder')
 def make_config(config,path):
     """Write the file `config` and complete the sample names and paths for all files in `path`."""
     represent_dict_order = lambda self, data:  self.represent_mapping('tag:yaml.org,2002:map', data.items())
@@ -111,7 +111,7 @@ def make_config(config,path):
     conf["clustering"] =  "usearch_smallmem"
     conf["classification"] = "stampa"
 
-    conf["stampa_db" = "/data/db/unite/itsx.ITS2.stampa.fasta"
+    conf["stampa_db"] = "/data/db/unite/itsx.ITS2.stampa.fasta"
 
     conf["data"] = samples
 
