@@ -87,7 +87,7 @@ def make_config(config, path):
     conf["clustering"] =  "usearch_smallmem"
     conf["classification"] = "stampa"
 
-    conf["stampa_db" = "/data/db/unite/itsx.ITS2.stampa.fasta"
+    conf["stampa_db"] = "/data/db/unite/itsx.ITS2.stampa.fasta"
 
     conf["data"] = samples
 
@@ -96,5 +96,5 @@ def make_config(config, path):
     logging.info("Configuration file written to %s" % config)
 
 if __name__ == "__main__": 
-    make_config(config="config.yaml", path="../data/Clean/")
+    make_config(config="config.yaml", path="../../../../data/BGI_Nematodes2/F17FTSEUHT0003_MIChrwM_CHKPEI85217030282/Clean/")
 

@@ -12,7 +12,7 @@ PROJECT = config["project"] + "/"
 rule final:
     input: expand("{project}/stats/readstat.{data}.csv \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod="swarm") 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']) 
 
 
 rule unpack_and_rename:
@@ -191,7 +191,7 @@ if config['clustering'] == "swarm":
     rule swarm_get_seed:
         input: 
             swarms="{project}/{prog}/{ds}.minsize{minsize}.swarm.swarms",
-            amplicons="{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
+            amplicons="{project}/{prog}/clst/{ds}.sorted.minsize{minsize}.fasta"
         output:
             seeds="{project}/{prog}/clst/{ds}.minsize{minsize}.swarm.fasta"
         shell: "SEEDS=$(mktemp); cut -d ' ' -f 1 {input.swarms} | sed -e 's/^/>/' > '${{SEEDS}}'; grep -A 1 -F -f '${{SEEDS}}' {input.amplicons} | sed -e '/^--$/d' > {output.seeds}"
