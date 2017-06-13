@@ -4,9 +4,8 @@ import re
 import os
 import tempfile
 import yaml
+import sys
 from collections import OrderedDict
-
-# Adapted from: https://github.com/pnnl/atlas/blob/master/atlas/conf.py
 
 # http://stackoverflow.com/a/3675423
 def replace_last(source_string, replace_what, replace_with):
@@ -16,6 +15,7 @@ def replace_last(source_string, replace_what, replace_with):
     else: 
         return head + replace_with + tail
 
+# Adapted from: https://github.com/pnnl/atlas/blob/master/atlas/conf.py
 def get_sample_files(path):
     samples = OrderedDict()
     seen = set()
@@ -81,6 +81,7 @@ def make_config(config, path):
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
 
     conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
+    conf["its"] = false  
     conf["mergepairs"] = "vsearch"  
     conf["metadata"] = "../data/metadata.txt"
 
@@ -96,5 +97,5 @@ def make_config(config, path):
     logging.info("Configuration file written to %s" % config)
 
 if __name__ == "__main__": 
-    make_config(config="config.yaml", path="../../../../data/BGI_Nematodes2/F17FTSEUHT0003_MIChrwM_CHKPEI85217030282/Clean/")
+    make_config(config="config.yaml", path=sys.argv[1])
 
