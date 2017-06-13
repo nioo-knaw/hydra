@@ -351,7 +351,7 @@ if config["classification"] == "stampa":
 rule report:
     input:
         readstat = "{project}/stats/readstat.csv",
-        biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem")
+        biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering'])
     output:
         "{project}/stats/report.html"
     params:
