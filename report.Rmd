@@ -22,11 +22,11 @@ output:
 # `r snakemake@config$project`
 
 ## Info
-Forward primer: `r snakemake@config$forward_primer`
+OTU Clustering method: `r snakemake@config$clustering`
 
-Reverse primer: `r snakemake@config$reverse_primer`
+Taxonomic classification method: `r snakemake@config$classification`
 
-Silva database: `r basename(snakemake@config$silva_arb)`
+Reads have been merged with `r snakemake@params[["mergemethod"]]`
 
 ### Input files
 
@@ -36,7 +36,6 @@ kable(snakemake@config$data)
 ```
 
 ## Summary
-Reads have been merged with `r snakemake@params[["mergemethod"]]`
 
 ```{r set_plot_theme,echo=F}
 library(ggplot2)
