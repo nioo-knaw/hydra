@@ -12,6 +12,7 @@ PROJECT = config["project"] + "/"
 rule final:
     input: expand("{project}/stats/readstat.{data}.csv \
                    {project}/stats/report.html \
+                   {project}/stats/{data}_phix_stats.txt \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']) 
 
@@ -30,6 +31,22 @@ rule unpack_and_rename:
         shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
         shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
 
+rule filter_quality:
+     input:
+        forward="{project}/gunzip/{data}_R1.fastq",
+        reverse="{project}/gunzip/{data}_R2.fastq"
+     output:
+        forward="{project}/filter/{data}_R1.fastq",
+        reverse="{project}/filter/{data}_R2.fastq",
+        stats="{project}/stats/{data}_phix_stats.txt"
+     params:
+         phix="/data/db/contaminants/phix/phix.fasta"
+     log: "{project}/filter/{data}.log"
+     conda: "envs/bbmap.yaml"
+     threads: 16
+     shell:"""bbduk2.sh -Xmx8g in={input.forward} in2={input.reverse} out={output.forward} out2={output.reverse} \
+              fref={params.phix} qtrim="rl" trimq=30 threads={threads} stats={output.stats} 2> {log}"""
+
 rule fastqc:
     input:
         forward="{project}/gunzip/{data}_R1.fastq",
@@ -47,8 +64,8 @@ rule fastqc:
 if config['mergepairs'] == 'pandaseq':
     rule pandaseq:
         input:      
-            forward="{project}/gunzip/{data}_R1.fastq",
-            reverse="{project}/gunzip/{data}_R2.fastq"
+            forward="{project}/filter/{data}_R1.fastq",
+            reverse="{project}/filter/{data}_R2.fastq"
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         params:
@@ -98,8 +115,8 @@ rule readstat_all:
 if config['mergepairs'] == 'vsearch':
     rule mergepairs:
         input:
-            forward="{project}/gunzip/{data}_R1.fastq",
-            reverse="{project}/gunzip/{data}_R2.fastq"
+            forward="{project}/filter/{data}_R1.fastq",
+            reverse="{project}/filter/{data}_R2.fastq"
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         threads: 1
@@ -351,7 +368,7 @@ if config["classification"] == "stampa":
 rule report:
     input:
         readstat = "{project}/stats/readstat.csv",
-        biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering'])
+        biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
         otutable = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering'])        
     output:
         "{project}/stats/report.html"
