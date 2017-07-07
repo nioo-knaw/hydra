@@ -10,11 +10,12 @@ if os.path.isfile("config.yaml"):
 PROJECT = config["project"] + "/"
 
 rule final:
-    input: expand("{project}/stats/readstat.{data}.csv \
-                   {project}/stats/report.html \
-                   {project}/stats/{data}_phix_stats.txt \
+    input: expand("{project}/stats/{data}_phix_stats.txt \
+                   {project}/barcode/{data}/barcodes.fastq \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']) 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom \
+                   {project}/stats/readstat.{data}.csv \
+                   {project}/stats/report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']) 
 
 
 rule unpack_and_rename:
@@ -31,7 +32,7 @@ rule unpack_and_rename:
         shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
         shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
 
-rule filter_quality:
+rule filter_phix:
      input:
         forward="{project}/gunzip/{data}_R1.fastq",
         reverse="{project}/gunzip/{data}_R2.fastq"
@@ -46,6 +47,27 @@ rule filter_quality:
      threads: 16
      shell:"""bbduk2.sh -Xmx8g in={input.forward} in2={input.reverse} out={output.forward} out2={output.reverse} \
               fref={params.phix} qtrim="rl" trimq=30 threads={threads} stats={output.stats} 2> {log}"""
+
+rule remove_barcodes:
+    input:
+        forward="{project}/filter/{data}_R1.fastq",
+        reverse="{project}/filter/{data}_R2.fastq",
+    output:
+        barcodes=temp("{project}/barcode/{data}/barcodes.fastq"),
+        barcodes_fasta=temp("{project}/barcode/{data}/barcodes.fasta"),
+        forward="{project}/barcode/{data}_R1.fastq",
+        reverse="{project}/barcode/{data}_R2.fastq",
+        forward_unpaired="{project}/barcode/{data}_R1_unpaired.fastq",
+        reverse_unpaired="{project}/barcode/{data}_R2_unpaired.fastq",
+    params:
+        outdir="{project}/barcode/{data}/",
+        threshold=5
+    log: "{project}/barcode/{data}.log"
+    conda: "envs/barcode.yaml"
+    threads: 8
+    shell: """extract_barcodes.py -f {input.forward}  -s# -l 8 -o {params.outdir} -c barcode_in_label && fastq_to_fasta < {output.barcodes} > {output.barcodes_fasta} && \
+              trimmomatic PE -threads {threads} -phred33 {input.forward} {input.reverse} {output.forward} {output.forward_unpaired} {output.reverse} {output.reverse_unpaired} ILLUMINACLIP:{output.barcodes_fasta}:0:0:{params.threshold} 2> {log}
+"""
 
 rule fastqc:
     input:
@@ -64,8 +86,8 @@ rule fastqc:
 if config['mergepairs'] == 'pandaseq':
     rule pandaseq:
         input:      
-            forward="{project}/filter/{data}_R1.fastq",
-            reverse="{project}/filter/{data}_R2.fastq"
+            forward="{project}/barcode/{data}_R1.fastq",
+            reverse="{project}/barcode/{data}_R2.fastq"
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         params:
@@ -115,8 +137,8 @@ rule readstat_all:
 if config['mergepairs'] == 'vsearch':
     rule mergepairs:
         input:
-            forward="{project}/filter/{data}_R1.fastq",
-            reverse="{project}/filter/{data}_R2.fastq"
+            forward="{project}/barcode/{data}_R1.fastq",
+            reverse="{project}/barcode/{data}_R2.fastq"
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         threads: 1
