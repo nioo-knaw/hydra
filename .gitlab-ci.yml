@@ -5,16 +5,7 @@ before_script:
   - conda config --add channels defaults
   - conda config --add channels r
   - conda config --add channels bioconda
-#  - conda install snakemake
-  - git clone https://bitbucket.org/snakemake/snakemake.git
-  - cd snakemake
-  - git checkout ct-ftp-close-every-time-option
-#  - conda env create -f environment.yml -n snakemake-testing
-#  - pip install -e .
-#  - source activate snakemake-testing
-  - python setup.py install
-  - pip install pyyaml ftputil click
-  - cd ..
+  - conda install snakemake
 
 stages:
     - rulegraph
