@@ -387,8 +387,15 @@ if config["classification"] == "stampa":
                   biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
                """
 
+rule workflow_graph:
+    output: "{project}/report/workflow.svg"
+    conda: "envs/rulegraph.yaml"
+    shell: "snakemake --rulegraph | dot -Tsvg > {output}"
+
+
 rule report:
     input:
+        workflow =  "{project}/report/workflow.svg",
         readstat = "{project}/stats/readstat.csv",
         biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
         otutable = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering'])        
