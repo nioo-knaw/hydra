@@ -101,7 +101,7 @@ def make_config(config,path):
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
 
     conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
-    conf["mergepairs"] = "pandaseq"  
+    conf["mergepairs"] = "vsearch"  
     conf["metadata"] = "metadata.txt"
     if ena:
         conf["remote"] = True
