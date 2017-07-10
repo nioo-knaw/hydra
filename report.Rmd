@@ -2,7 +2,6 @@
 title: "Hydra report"
 author:
 - "Mattias  de Hollander (m.dehollander@nioo.knaw.nl)"
-- "Basten Snoek (B.Snoek@nioo.knaw.nl)"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 params:
     rmd: "report.Rmd"
@@ -17,9 +16,7 @@ output:
       collapsed: no
       smooth_scroll: yes
 ---
-
-
-# `r snakemake@config$project`
+# Hydra report for `r snakemake@config$project`
 
 ## Info
 OTU Clustering method: `r snakemake@config$clustering`
@@ -52,21 +49,6 @@ plot.theme <- theme(axis.text.x=element_text(size=12,angle=0,colour="black"),
 
 ## Workflow
 ![](`r snakemake@input$workflow`)
-
-## Plot
-```{r cars, message=FALSE, warning=FALSE}
-library(plotly)
-readstat = read.csv(snakemake@input$readstat)
-Average_length <- readstat$avg_len
-Sample_no <- seq(1, length(readstat$avg_len))
-to.pl <- data.frame(Average_length,Sample_no)
-
-p <- ggplot(to.pl, aes(y=Average_length, x = Sample_no)) + 
-     geom_point(col="black") + 
-     plot.theme
-
-ggplotly(p)
-```
 
 
 ## Plot
