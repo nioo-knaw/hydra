@@ -48,6 +48,13 @@ rule filter_phix:
      shell:"""bbduk2.sh -Xmx8g in={input.forward} in2={input.reverse} out={output.forward} out2={output.reverse} \
               fref={params.phix} qtrim="rl" trimq=30 threads={threads} stats={output.stats} 2> {log}"""
 
+rule phix_stats:
+    input: expand("{project}/stats/{data}_phix_stats.txt",  project=config['project'], data=config["data"])
+    output: 
+        "{project}/stats/phix.txt"
+    shell: "for file in {input}; do printf $file'\t' >> {output} && grep -v '#' $file >> {output}; done && exit 0"
+
+
 rule remove_barcodes:
     input:
         forward="{project}/filter/{data}_R1.fastq",
