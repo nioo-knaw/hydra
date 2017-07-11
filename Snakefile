@@ -106,7 +106,7 @@ if config['mergepairs'] == 'pandaseq':
         log: "{project}/mergepairs/{data}_pandaseq.stdout"
         threads: 1
         conda: "envs/pandaseq.yaml"
-        shell: "pandaseq -N -A rdp_mle -o {params.overlap} -l {params.minlength} -L {params.maxlength} -f {input.forward} -r {input.reverse} -T {threads} -w {output.fasta} -g {log}"
+        shell: "pandaseq -N -o {params.overlap} -l {params.minlength} -L {params.maxlength} -f {input.forward} -r {input.reverse} -T {threads} -w {output.fasta} -g {log}"
 
 rule fastqc_pandaseq:
     input:
@@ -371,7 +371,7 @@ if config["classification"] == "stampa":
              stampadir="{project}/{prog}/stampa/",
              db = config['stampa_db']
         conda: "envs/vsearch.yaml"
-        threads: 16
+        threads: 32
         # Create STAMPA compatible input
         # Replace underscore in otu names and add fake abundance information
         shell:"""
