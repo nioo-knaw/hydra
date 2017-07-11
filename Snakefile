@@ -394,7 +394,7 @@ if config["classification"] == "stampa":
                """
 
 rule workflow_graph:
-    output: "{project}/report/workflow.svg"
+    output: temporary("{project}/report/workflow.svg")
     conda: "envs/rulegraph.yaml"
     shell: "snakemake --rulegraph | dot -Tsvg > {output}"
 
