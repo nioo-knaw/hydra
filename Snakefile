@@ -10,7 +10,7 @@ if os.path.isfile("config.yaml"):
 PROJECT = config["project"] + "/"
 
 rule final:
-    input: expand("{project}/stats/{data}_phix_stats.txt \
+    input: expand("{project}/stats/contaminants.txt \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom \
                    {project}/stats/readstat.csv \
@@ -31,28 +31,28 @@ rule unpack_and_rename:
         shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
         shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
 
-rule filter_phix:
+rule filter_contaminants:
      input:
         forward="{project}/gunzip/{data}_R1.fastq",
         reverse="{project}/gunzip/{data}_R2.fastq"
      output:
         forward="{project}/filter/{data}_R1.fastq",
         reverse="{project}/filter/{data}_R2.fastq",
-        stats="{project}/stats/{data}_phix_stats.txt"
+        stats="{project}/stats/{data}_contaminants_stats.txt"
      params:
-         phix="/data/db/contaminants/phix/phix.fasta"
+         phix="/data/db/contaminants/phix/phix.fasta",
+         adapters="/data/ngs/adapters/illumina_scriptseq_and_truseq_adapters.fa"
      log: "{project}/filter/{data}.log"
      conda: "envs/bbmap.yaml"
      threads: 16
      shell:"""bbduk2.sh -Xmx8g in={input.forward} in2={input.reverse} out={output.forward} out2={output.reverse} \
-              fref={params.phix} qtrim="rl" trimq=30 threads={threads} stats={output.stats} 2> {log}"""
+              lref={params.adapters}, rref={params.adapters} fref={params.phix} qtrim="rl" trimq=30 threads={threads} stats={output.stats} 2> {log}"""
 
-rule phix_stats:
-    input: expand("{project}/stats/{data}_phix_stats.txt",  project=config['project'], data=config["data"])
+rule contaminants_stats:
+    input: expand("{project}/stats/{data}_contaminants_stats.txt",  project=config['project'], data=config["data"])
     output: 
-        "{project}/stats/phix.txt"
-    shell: "for file in {input}; do printf $file'\t' >> {output} && grep -v '#' $file >> {output}; done && exit 0"
-
+        "{project}/stats/contaminants.txt"
+    shell: "grep '#' -v {input} | tr ':' '\t' > {output}"
 
 rule remove_barcodes:
     input:
