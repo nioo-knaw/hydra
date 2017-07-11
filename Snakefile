@@ -11,10 +11,9 @@ PROJECT = config["project"] + "/"
 
 rule final:
     input: expand("{project}/stats/{data}_phix_stats.txt \
-                   {project}/barcode/{data}/barcodes.fastq \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom \
-                   {project}/stats/readstat.{data}.csv \
+                   {project}/stats/readstat.csv \
                    {project}/stats/report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']) 
 
 
