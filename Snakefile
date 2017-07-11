@@ -89,6 +89,16 @@ rule fastqc:
     conda: "envs/fastqc.yaml"
     shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log} && fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}"
 
+if config['mergepairs'] == 'none':
+    rule copy_forward:
+        input:
+            forward="{project}/barcode/{data}_R1.fastq"
+        output:
+            fasta = "{project}/mergepairs/{data}.fasta"
+        conda: "envs/barcode.yaml"
+        shell: "fastq_to_fasta < {input} > {output}"
+
+
 if config['mergepairs'] == 'pandaseq':
     rule pandaseq:
         input:      
