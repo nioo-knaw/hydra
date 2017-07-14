@@ -75,6 +75,26 @@ rule remove_barcodes:
               trimmomatic PE -threads {threads} -phred33 {input.forward} {input.reverse} {output.forward} {output.forward_unpaired} {output.reverse} {output.reverse_unpaired} ILLUMINACLIP:{output.barcodes_fasta}:0:0:{params.threshold} 2> {log}
 """
 
+rule readstat_reverse:
+    input:
+        "{project}/barcode/{data}_R2.fastq"
+    output:
+        temporary("{project}/stats/reverse/readstat.{data}.csv")
+    log:
+        "{project}/stats/reverse/readstat.{data}.log"
+    conda:
+        "envs/khmer.yaml"
+    threads: 1
+    shell: "readstats.py {input} --csv -o {output} 2> {log}"
+
+rule readstat_reverse_merge:
+    input:
+        expand("{project}/stats/reverse/readstat.{data}.csv", project=config['project'], data=config["data"])
+    output:
+        protected("{project}/stats/readstat_R2.csv")
+    shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
+
+
 rule fastqc:
     input:
         forward="{project}/gunzip/{data}_R1.fastq",
@@ -413,6 +433,7 @@ rule report:
     input:
         workflow =  "{project}/report/workflow.svg",
         readstat = "{project}/stats/readstat.csv",
+        readstat_reverse = "{project}/stats/readstat_R2.csv",
         biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
         otutable = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering'])        
     output:

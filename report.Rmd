@@ -60,6 +60,15 @@ p <- ggplot(readstat, aes(y=readstat$avg_len, x = seq(1, length(readstat$avg_len
 ggplotly(p)
 ```
 
+## Sequence length reverse reads
+```{r readstat_reverse, message=FALSE, warning=FALSE}
+library(plotly)
+readstat = read.csv(snakemake@input$readstat_reverse)
+p <- ggplot(readstat, aes(y=readstat$avg_len, x = seq(1, length(readstat$avg_len)))) + geom_point()
+
+ggplotly(p)
+```
+
 ## phyloseq
 ```{r phyloseq, message=FALSE, warning=FALSE}
 library(phyloseq)
