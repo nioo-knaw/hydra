@@ -430,10 +430,11 @@ if config["classification"] == "blast":
         output:
             hits="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.blastout.txt",
         params:
-            db = "/data/db/pr2/gb203/ready4train_seqs.fasta"
+            db = "/data/db/pr2/gb203/ready4train_seqs.fasta",
+            max_hits = config["blast_max_hits"]
         threads: 32
         conda: "envs/blast.yaml"
-        shell: """blastn -query {input} -db {params.db} -evalue 1e-5 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"  -out {output.hits} -num_threads {threads} -max_target_seqs 50"""
+        shell: """blastn -query {input} -db {params.db} -evalue 1e-5 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"  -out {output.hits} -num_threads {threads} -max_target_seqs {params.max_hits}"""
 
     rule lca:
         input:
