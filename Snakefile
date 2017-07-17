@@ -423,6 +423,54 @@ if config["classification"] == "stampa":
                   biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
                """
 
+if config["classification"] == "blast":
+    rule blastn:
+        input:
+            "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+        output:
+            hits="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.blastout.txt",
+        params:
+            db = "/data/db/pr2/gb203/ready4train_seqs.fasta"
+        threads: 32
+        conda: "envs/blast.yaml"
+        shell: """blastn -query {input} -db {params.db} -evalue 1e-5 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"  -out {output.hits} -num_threads {threads} -max_target_seqs 50"""
+
+    rule lca:
+        input:
+            hits="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.blastout.txt",
+            taxref = "/data/db/pr2/gb203/lotus_lca.tax",
+            fasta = "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+        output:
+            lca="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.lca.txt",
+            taxonomy="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt"
+        run:
+            shell("./LCA -i {input.hits} -r {input.taxref} -o {output.lca} -id '99,96,93,91,88,78,0'")
+            shell("""cat {output.lca} | awk -F"\t" 'BEGIN{{}}{{gsub(" ","_",$0);gsub("\\"","",$0);print $1"\\td__"$2";p__"$3";c__"$4";o__"$5";f_"$6";g__"$7";s__"$8}}' > {output.taxonomy}""")
+            # Detect OTUs without blast hit
+            hits = []
+            with open(output.lca) as fh:
+                for line in fh:
+                    line = line.strip().split("\t")
+                    hits.append(line[0])
+            with open(input.fasta) as fasta_file, open(output.taxonomy, "a") as outfile:
+                for line in fasta_file:
+                    line = line.strip()
+                    if line.startswith(">"):
+                        if line[1:] not in hits:
+                            outfile.write("%s\td__?;p__?;c__?;o__?;f__?;g__?;s__?\n" % line[1:])
+
+    rule biom_tax_blast:
+        input:
+            taxonomy="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
+            biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
+        output:
+            biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
+            otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
+        conda: "envs/biom-format.yaml"
+        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --output-as-json && \
+                  biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
+               """
+
 rule workflow_graph:
     output: temporary("{project}/report/workflow.svg")
     conda: "envs/rulegraph.yaml"
