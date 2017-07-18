@@ -81,8 +81,8 @@ def make_config(config, path):
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
 
     conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
-    conf["its"] = False  
-    conf["mergepairs"] = "vsearch"  
+    conf["its"] = False
+    conf["mergepairs"] = "vsearch"
     conf["metadata"] = "../data/metadata.txt"
 
     conf["clustering"] =  "usearch_smallmem"
@@ -90,6 +90,7 @@ def make_config(config, path):
 
     conf["stampa_db"] = "/data/db/unite/itsx.ITS2.stampa.fasta"
 
+    conf["convert_to_casava1.8"] = False
     conf["data"] = samples
 
     with open(config, "w") as f:
