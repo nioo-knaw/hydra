@@ -82,7 +82,7 @@ def make_config(config, path):
     conf["quality_control"]["barcode"]["threshold"] = 5
 
     conf["quality_control"]["trimming"] = OrderedDict()
-    conf["quality_control"]["barcode"]["threshold"] = 25
+    conf["quality_control"]["trimming"]["threshold"] = 25
 
     conf["forward_primer"] = "CCTACGGGNGGCWGCAG"
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
