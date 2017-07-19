@@ -430,7 +430,7 @@ if config["classification"] == "blast":
         output:
             hits="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.blastout.txt",
         params:
-            db = "/data/db/pr2/gb203/ready4train_seqs.fasta",
+            db = config["blast_db"],
             max_hits = config["blast_max_hits"]
         threads: 32
         conda: "envs/blast.yaml"
@@ -439,13 +439,14 @@ if config["classification"] == "blast":
     rule lca:
         input:
             hits="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.blastout.txt",
-            taxref = "/data/db/pr2/gb203/lotus_lca.tax",
             fasta = "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
         output:
             lca="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.lca.txt",
             taxonomy="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt"
+        params:
+            taxref = "/data/db/pr2/gb203/lotus_lca.tax",
         run:
-            shell("./LCA -i {input.hits} -r {input.taxref} -o {output.lca} -id '99,96,93,91,88,78,0'")
+            shell("./LCA -i {input.hits} -r {params.taxref} -o {output.lca} -id '99,96,93,91,88,78,0'")
             shell("""cat {output.lca} | awk -F"\t" 'BEGIN{{}}{{gsub(" ","_",$0);gsub("\\"","",$0);print $1"\\td__"$2";p__"$3";c__"$4";o__"$5";f_"$6";g__"$7";s__"$8}}' > {output.taxonomy}""")
             # Detect OTUs without blast hit
             hits = []
@@ -464,6 +465,84 @@ if config["classification"] == "blast":
         input:
             taxonomy="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
             biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
+        output:
+            biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
+            otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
+        conda: "envs/biom-format.yaml"
+        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --output-as-json && \
+                  biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
+               """
+
+if config["classification"] == "rdp":
+    rule rdp:
+        input:
+            fasta = "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+        output:
+             "{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.rdp"
+        params:
+            traindir="/data/db/unite/UNITE_retrained/" 
+        conda: "envs/rdp.yaml"
+        shell: "classifier classify -Xms512M -Xmx8g -t {params.traindir}/rRNAClassifier.properties -o {output} {input}"
+
+    rule rdp_filter:
+        input:
+            rdpout = "{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.rdp",
+            fasta = "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+        output:
+             "{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.filtered.rdp"
+        params:
+            cutoff = config["rdp_confidence_cutoff"]
+        run:
+            hits = []
+            with open(input.rdpout) as rdpout, open(output[0], "w") as outfile:
+                for line in rdpout:
+                    parts = line.strip().split("\t")
+                    tax_list = []
+                   
+                    for i in range(5, len(parts), 3):
+                         confidence = float(parts[i+2])
+                         taxonomy = parts[i].split("|")[-1].replace(" ", "_")
+                         tax_level = parts[i+1]
+
+                         if tax_level == "domain" or tax_level == "kingdom":
+                             tax_prefix = "k__" 
+                         elif tax_level == "phylum":
+                             tax_prefix = "p__"
+                         elif tax_level == "class":
+                             tax_prefix = "c__"
+                         elif tax_level == "order":
+                             tax_prefix = "o__"
+                         elif tax_level == "family":
+                             tax_prefix = "f__"
+                         elif tax_level == "genus":
+                             tax_prefix = "g__"
+                         elif tax_level == "species":
+                             tax_prefix = "s__"
+
+                         if confidence > params.cutoff:
+                             tax_list.append(tax_prefix + taxonomy)
+                         else:
+                             tax_list.append(tax_prefix + "unclassified")
+
+                    tax_string = ";".join(tax_list)
+                    outfile.write("%s\t%s\n" % (parts[0],tax_string))
+                    # Keep track of OTUs with classification
+                    hits.append(parts[0])
+            
+            # Add OTUs without RDP classification
+            with open(input.fasta) as fasta_file, open(output[0], "a") as outfile:
+                for line in fasta_file:
+                    line = line.strip()
+                    if line.startswith(">"):
+                        if line[1:] not in hits:
+                            outfile.write("%s\td__unclassified;p__unclassified;c__unclassified;o__unclassified;f__unclassified;g__unclassified;s__unclassified\n" % line[1:])
+
+             
+
+    rule biom_tax_rdp:
+        input:
+            biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
+            taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.filtered.rdp"       
         output:
             biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
             otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
