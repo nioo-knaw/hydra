@@ -28,8 +28,13 @@ rule unpack_and_rename:
         prefix="{data}"
     threads: 2
     run: 
-        shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
-        shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
+        if config["convert_to_casava1.8"]:
+            # BUGFIX: For baseclear data, convert ti casava 1.8 format and add 0 as tag
+            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/1$\",\" 1:N:0:0\") substr($0,2) : $0}}' > {output.forward}")
+            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/2$\",\" 2:N:0:0\") substr($0,2) : $0}}' > {output.reverse}")
+        else:
+            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
+            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
 
 rule filter_contaminants:
      input:
@@ -41,12 +46,13 @@ rule filter_contaminants:
         stats="{project}/stats/{data}_contaminants_stats.txt"
      params:
          phix="/data/db/contaminants/phix/phix.fasta",
-         adapters="/data/ngs/adapters/illumina_scriptseq_and_truseq_adapters.fa"
+         adapters="/data/ngs/adapters/illumina_scriptseq_and_truseq_adapters.fa",
+         quality=config["quality_control"]["trimming"]["quality"]
      log: "{project}/filter/{data}.log"
      conda: "envs/bbmap.yaml"
      threads: 16
      shell:"""bbduk2.sh -Xmx8g in={input.forward} in2={input.reverse} out={output.forward} out2={output.reverse} \
-              lref={params.adapters}, rref={params.adapters} fref={params.phix} qtrim="rl" trimq=30 threads={threads} stats={output.stats} 2> {log}"""
+              lref={params.adapters}, rref={params.adapters} fref={params.phix} qtrim="rl" trimq={params.quality} threads={threads} stats={output.stats} 2> {log}"""
 
 rule contaminants_stats:
     input: expand("{project}/stats/{data}_contaminants_stats.txt",  project=config['project'], data=config["data"])
@@ -67,11 +73,13 @@ rule remove_barcodes:
         reverse_unpaired="{project}/barcode/{data}_R2_unpaired.fastq",
     params:
         outdir="{project}/barcode/{data}/",
-        threshold=5
+        threshold=config['quality_control']['barcode']['threshold'],
+        length=config['quality_control']['barcode']['length'],
+        sep=config['quality_control']['barcode']['seperator'] 
     log: "{project}/barcode/{data}.log"
     conda: "envs/barcode.yaml"
     threads: 8
-    shell: """extract_barcodes.py -f {input.forward}  -s# -l 8 -o {params.outdir} -c barcode_in_label && fastq_to_fasta < {output.barcodes} > {output.barcodes_fasta} && \
+    shell: """extract_barcodes.py -f {input.forward}  -s{params.sep} -l {params.length} -o {params.outdir} -c barcode_in_label && fastq_to_fasta < {output.barcodes} > {output.barcodes_fasta} && \
               trimmomatic PE -threads {threads} -phred33 {input.forward} {input.reverse} {output.forward} {output.forward_unpaired} {output.reverse} {output.reverse_unpaired} ILLUMINACLIP:{output.barcodes_fasta}:0:0:{params.threshold} 2> {log}
 """
 
@@ -341,7 +349,7 @@ if config["classification"] == "silva":
         threads: 24
         # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
         conda: "envs/sina.yaml"
-        shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
+        shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv || :"
 
     rule sina_get_taxonomy_from_logfile_edgar:
         input:
