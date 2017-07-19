@@ -76,7 +76,11 @@ def make_config(config, path):
     conf["pandaseq_quality"] = "25"
     conf["pandaseq_minlength"] = "100"
     conf["pandaseq_maxlength"] = "700"
-    
+
+    conf["quality_control"] = OrderedDict()
+    conf["quality_control"]["barcode"] = OrderedDict()
+    conf["quality_control"]["barcode"]["threshold"] = 5
+
     conf["forward_primer"] = "CCTACGGGNGGCWGCAG"
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
 
