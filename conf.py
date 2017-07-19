@@ -6,11 +6,12 @@ import tempfile
 import yaml
 from collections import OrderedDict
 import click
+import urllib
 
 # Adapted from: https://github.com/pnnl/atlas/blob/master/atlas/conf.py
 
+logging.basicConfig(level=logging.INFO, datefmt="%Y-%m-%d %H:%M", format="[%(asctime)s %(levelname)s] %(message)s")
 
-ena = True
 host = "ftp.sra.ebi.ac.uk"
 project = "PRJEB14409"
 #project = "PRJNA319605"
@@ -25,19 +26,24 @@ def replace_last(source_string, replace_what, replace_with):
 
 def get_ena(project):
     from urllib import request
-    samples = request.urlopen("http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession=%s&result=read_run&fields=fastq_ftp" % project).readlines()[1:]
+    samples = ""
+    try:
+        samples = request.urlopen("http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession=%s&result=read_run&fields=fastq_ftp" % project).readlines()[1:]
+    except urllib.error.HTTPError:
+        print("Not a valid ENA project")
     for sample in samples:
         for fastq in sample.strip().split(b';'):
             dirpath = os.path.dirname(fastq).decode("utf-8")
             filename = os.path.basename(fastq).decode("utf-8")
             yield (dirpath,"",[filename])
 
-def get_sample_files(path):
+def get_sample_files(path, remote):
     samples = OrderedDict()
     seen = set()
     walker = ""
-    if ena:
-        walker = get_ena(project)
+
+    if remote != None:
+        walker = get_ena(remote)
     else:
         walker = os.walk(path)
     for dir_name, sub_dirs, files in walker:
@@ -78,24 +84,29 @@ def get_sample_files(path):
     return samples
 
 @click.command()
-@click.option('--config', default="config.yaml", help='number of greetings')
-@click.option('--path', default="../data", help='path to data folder')
-def make_config(config,path):
+@click.option('--project', prompt=True, required=True, help='Give your project a nice name')
+@click.option('--config', default="config.yaml", show_default=True, help='File to write the configuration to')
+@click.option('--remote', help='Specify a ENA project to use as remote data (for example PRJEB14409')
+@click.option('--path', default="../data", show_default=True, help='path to data folder')
+def make_config(project,config,path,remote):
     """Write the file `config` and complete the sample names and paths for all files in `path`."""
     represent_dict_order = lambda self, data:  self.represent_mapping('tag:yaml.org,2002:map', data.items())
     yaml.add_representer(OrderedDict, represent_dict_order)
     path = os.path.realpath(path)
 
     conf = OrderedDict()
-    samples = get_sample_files(path)
+    samples = get_sample_files(path, remote)
 
-    logging.info("Found %d samples under %s" % (len(samples), path))
-    conf["project"] = "My-Project"
+    logging.info("Found %d samples under %s" % (len(samples), path if remote == None else "remote project %s " % remote))
+
+    conf["project"] = project
+    conf["minsize"] 2
     conf["adapters_fasta"] = "/data/ngs/adapters/contaminant_list.txt"
     conf["pandaseq_overlap"] = "10"
     conf["pandaseq_quality"] = "25"
     conf["pandaseq_minlength"] = "100"
     conf["pandaseq_maxlength"] = "700"
+    
     
     conf["forward_primer"] = "CCTACGGGNGGCWGCAG"
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
@@ -103,7 +114,7 @@ def make_config(config,path):
     conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
     conf["mergepairs"] = "vsearch"  
     conf["metadata"] = "metadata.txt"
-    if ena:
+    if remote != None:
         conf["remote"] = True
     else:
         conf["remote"] = False

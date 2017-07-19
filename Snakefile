@@ -16,7 +16,7 @@ PROJECT = config["project"] + "/"
 rule final:
     input: expand("{project}/stats/readstat.{data}.csv \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']) 
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=config['minsize'],clmethod=config['clustering'])
 
 
 from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
