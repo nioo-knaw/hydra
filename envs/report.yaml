@@ -1,11 +1,10 @@
 channels:
-  - r
   - conda-forge
   - bioconda
+  - r
 dependencies:
-  - r == 3.3.3
   - rpy2
-  - r-rmarkdown
+  - r-rmarkdown=1.6
   - pandoc
   - r-plotly
   - bioconductor-phyloseq

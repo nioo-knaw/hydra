@@ -4,6 +4,7 @@ import re
 import os
 import tempfile
 import yaml
+import sys
 from collections import OrderedDict
 import click
 import urllib
@@ -125,6 +126,7 @@ def make_config(project,config,path,remote):
 
     conf["stampa_db"] = "/data/db/unite/itsx.ITS2.stampa.fasta"
 
+    conf["convert_to_casava1.8"] = False
     conf["data"] = samples
 
     with open(config, "w") as f:
@@ -133,4 +135,3 @@ def make_config(project,config,path,remote):
 
 if __name__ == "__main__": 
     make_config()
-

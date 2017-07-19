@@ -1,0 +1,7 @@
+channels:
+  - bioconda
+dependencies:
+  - bbmap
+  - qiime
+  - fastx_toolkit
+  - trimmomatic

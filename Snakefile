@@ -14,7 +14,7 @@ shell.executable("/bin/bash")
 PROJECT = config["project"] + "/"
 
 rule final:
-    input: expand("{project}/stats/readstat.{data}.csv \
+    input: expand("{project}/stats/contaminants.txt \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=config['minsize'],clmethod=config['clustering'])
 
@@ -35,8 +35,79 @@ else lambda wildcards: config["data"][wildcards.data]["path"][1]
         prefix="{data}"
     threads: 8
     run: 
-        shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
-        shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
+        if config["convert_to_casava1.8"]:
+            # BUGFIX: For baseclear data, convert ti casava 1.8 format and add 0 as tag
+            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/1$\",\" 1:N:0:0\") substr($0,2) : $0}}' > {output.forward}")
+            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/2$\",\" 2:N:0:0\") substr($0,2) : $0}}' > {output.reverse}")
+        else:
+            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
+            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
+
+rule filter_contaminants:
+     input:
+        forward="{project}/gunzip/{data}_R1.fastq",
+        reverse="{project}/gunzip/{data}_R2.fastq"
+     output:
+        forward="{project}/filter/{data}_R1.fastq",
+        reverse="{project}/filter/{data}_R2.fastq",
+        stats="{project}/stats/{data}_contaminants_stats.txt"
+     params:
+         phix="/data/db/contaminants/phix/phix.fasta",
+         adapters="/data/ngs/adapters/illumina_scriptseq_and_truseq_adapters.fa"
+     log: "{project}/filter/{data}.log"
+     conda: "envs/bbmap.yaml"
+     threads: 16
+     shell:"""bbduk2.sh -Xmx8g in={input.forward} in2={input.reverse} out={output.forward} out2={output.reverse} \
+              lref={params.adapters}, rref={params.adapters} fref={params.phix} qtrim="rl" trimq=30 threads={threads} stats={output.stats} 2> {log}"""
+
+rule contaminants_stats:
+    input: expand("{project}/stats/{data}_contaminants_stats.txt",  project=config['project'], data=config["data"])
+    output: 
+        "{project}/stats/contaminants.txt"
+    shell: "grep '#' -v {input} | tr ':' '\t' > {output}"
+
+rule remove_barcodes:
+    input:
+        forward="{project}/filter/{data}_R1.fastq",
+        reverse="{project}/filter/{data}_R2.fastq",
+    output:
+        barcodes=temp("{project}/barcode/{data}/barcodes.fastq"),
+        barcodes_fasta=temp("{project}/barcode/{data}/barcodes.fasta"),
+        forward="{project}/barcode/{data}_R1.fastq",
+        reverse="{project}/barcode/{data}_R2.fastq",
+        forward_unpaired="{project}/barcode/{data}_R1_unpaired.fastq",
+        reverse_unpaired="{project}/barcode/{data}_R2_unpaired.fastq",
+    params:
+        outdir="{project}/barcode/{data}/",
+        threshold=config['quality_control']['barcode']['threshold'],
+        length=config['quality_control']['barcode']['length'],
+        sep=config['quality_control']['barcode']['seperator'] 
+    log: "{project}/barcode/{data}.log"
+    conda: "envs/barcode.yaml"
+    threads: 8
+    shell: """extract_barcodes.py -f {input.forward}  -s{params.sep} -l {params.length} -o {params.outdir} -c barcode_in_label && fastq_to_fasta < {output.barcodes} > {output.barcodes_fasta} && \
+              trimmomatic PE -threads {threads} -phred33 {input.forward} {input.reverse} {output.forward} {output.forward_unpaired} {output.reverse} {output.reverse_unpaired} ILLUMINACLIP:{output.barcodes_fasta}:0:0:{params.threshold} 2> {log}
+"""
+
+rule readstat_reverse:
+    input:
+        "{project}/barcode/{data}_R2.fastq"
+    output:
+        temporary("{project}/stats/reverse/readstat.{data}.csv")
+    log:
+        "{project}/stats/reverse/readstat.{data}.log"
+    conda:
+        "envs/khmer.yaml"
+    threads: 1
+    shell: "readstats.py {input} --csv -o {output} 2> {log}"
+
+rule readstat_reverse_merge:
+    input:
+        expand("{project}/stats/reverse/readstat.{data}.csv", project=config['project'], data=config["data"])
+    output:
+        protected("{project}/stats/readstat_R2.csv")
+    shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
+
 
 rule fastqc:
     input:
@@ -52,11 +123,21 @@ rule fastqc:
     conda: "envs/fastqc.yaml"
     shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log} && fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}"
 
+if config['mergepairs'] == 'none':
+    rule copy_forward:
+        input:
+            forward="{project}/barcode/{data}_R1.fastq"
+        output:
+            fasta = "{project}/mergepairs/{data}.fasta"
+        conda: "envs/barcode.yaml"
+        shell: "fastq_to_fasta < {input} > {output}"
+
+
 if config['mergepairs'] == 'pandaseq':
     rule pandaseq:
         input:      
-            forward="{project}/gunzip/{data}_R1.fastq",
-            reverse="{project}/gunzip/{data}_R2.fastq"
+            forward="{project}/barcode/{data}_R1.fastq",
+            reverse="{project}/barcode/{data}_R2.fastq"
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         params:
@@ -69,7 +150,7 @@ if config['mergepairs'] == 'pandaseq':
         log: "{project}/mergepairs/{data}_pandaseq.stdout"
         threads: 1
         conda: "envs/pandaseq.yaml"
-        shell: "pandaseq -N -A rdp_mle -o {params.overlap} -l {params.minlength} -L {params.maxlength} -f {input.forward} -r {input.reverse} -T {threads} -w {output.fasta} -g {log}"
+        shell: "pandaseq -N -o {params.overlap} -l {params.minlength} -L {params.maxlength} -f {input.forward} -r {input.reverse} -T {threads} -w {output.fasta} -g {log}"
 
 rule fastqc_pandaseq:
     input:
@@ -106,8 +187,8 @@ rule readstat_all:
 if config['mergepairs'] == 'vsearch':
     rule mergepairs:
         input:
-            forward="{project}/gunzip/{data}_R1.fastq",
-            reverse="{project}/gunzip/{data}_R2.fastq"
+            forward="{project}/barcode/{data}_R1.fastq",
+            reverse="{project}/barcode/{data}_R2.fastq"
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         threads: 1
@@ -273,8 +354,8 @@ if config["classification"] == "silva":
         priority: -1
         threads: 24
         # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
-    #    conda: "envs/sina.yaml"
-        shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
+        conda: "envs/sina.yaml"
+        shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv || :"
 
     rule sina_get_taxonomy_from_logfile_edgar:
         input:
@@ -334,7 +415,7 @@ if config["classification"] == "stampa":
              stampadir="{project}/{prog}/stampa/",
              db = config['stampa_db']
         conda: "envs/vsearch.yaml"
-        threads: 16
+        threads: 32
         # Create STAMPA compatible input
         # Replace underscore in otu names and add fake abundance information
         shell:"""
@@ -356,10 +437,68 @@ if config["classification"] == "stampa":
                   biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
                """
 
+if config["classification"] == "blast":
+    rule blastn:
+        input:
+            "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+        output:
+            hits="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.blastout.txt",
+        params:
+            db = "/data/db/pr2/gb203/ready4train_seqs.fasta",
+            max_hits = config["blast_max_hits"]
+        threads: 32
+        conda: "envs/blast.yaml"
+        shell: """blastn -query {input} -db {params.db} -evalue 1e-5 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"  -out {output.hits} -num_threads {threads} -max_target_seqs {params.max_hits}"""
+
+    rule lca:
+        input:
+            hits="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.blastout.txt",
+            taxref = "/data/db/pr2/gb203/lotus_lca.tax",
+            fasta = "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+        output:
+            lca="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.lca.txt",
+            taxonomy="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt"
+        run:
+            shell("./LCA -i {input.hits} -r {input.taxref} -o {output.lca} -id '99,96,93,91,88,78,0'")
+            shell("""cat {output.lca} | awk -F"\t" 'BEGIN{{}}{{gsub(" ","_",$0);gsub("\\"","",$0);print $1"\\td__"$2";p__"$3";c__"$4";o__"$5";f_"$6";g__"$7";s__"$8}}' > {output.taxonomy}""")
+            # Detect OTUs without blast hit
+            hits = []
+            with open(output.lca) as fh:
+                for line in fh:
+                    line = line.strip().split("\t")
+                    hits.append(line[0])
+            with open(input.fasta) as fasta_file, open(output.taxonomy, "a") as outfile:
+                for line in fasta_file:
+                    line = line.strip()
+                    if line.startswith(">"):
+                        if line[1:] not in hits:
+                            outfile.write("%s\td__?;p__?;c__?;o__?;f__?;g__?;s__?\n" % line[1:])
+
+    rule biom_tax_blast:
+        input:
+            taxonomy="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
+            biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
+        output:
+            biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
+            otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
+        conda: "envs/biom-format.yaml"
+        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --output-as-json && \
+                  biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
+               """
+
+rule workflow_graph:
+    output: temporary("{project}/report/workflow.svg")
+    conda: "envs/rulegraph.yaml"
+    shell: "snakemake --rulegraph | dot -Tsvg > {output}"
+
+
 rule report:
     input:
+        workflow =  "{project}/report/workflow.svg",
         readstat = "{project}/stats/readstat.csv",
-        biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.sina.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod="usearch_smallmem")
+        readstat_reverse = "{project}/stats/readstat_R2.csv",
+        biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
+        otutable = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering'])        
     output:
         "{project}/stats/report.html"
     params:
@@ -368,4 +507,3 @@ rule report:
     conda: "envs/report.yaml"
     script:
         "report.Rmd"
-
