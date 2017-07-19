@@ -113,7 +113,7 @@ def make_config(project,config,path,remote):
     conf["quality_control"]["barcode"]["threshold"] = 5
 
     conf["quality_control"]["trimming"] = OrderedDict()
-    conf["quality_control"]["trimming"]["threshold"] = 25
+    conf["quality_control"]["trimming"]["quality"] = 25
 
     conf["forward_primer"] = "CCTACGGGNGGCWGCAG"
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
