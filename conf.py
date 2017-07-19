@@ -101,14 +101,13 @@ def make_config(project,config,path,remote):
     logging.info("Found %d samples under %s" % (len(samples), path if remote == None else "remote project %s " % remote))
 
     conf["project"] = project
-    conf["minsize"] 2
+    conf["minsize"] = 2
     conf["adapters_fasta"] = "/data/ngs/adapters/contaminant_list.txt"
     conf["pandaseq_overlap"] = "10"
     conf["pandaseq_quality"] = "25"
     conf["pandaseq_minlength"] = "100"
     conf["pandaseq_maxlength"] = "700"
-    
-    
+
     conf["forward_primer"] = "CCTACGGGNGGCWGCAG"
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
 
