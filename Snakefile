@@ -348,7 +348,7 @@ if config["classification"] == "silva":
         threads: 24
         # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
         conda: "envs/sina.yaml"
-        shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv"
+        shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv || :"
 
     rule sina_get_taxonomy_from_logfile_edgar:
         input:
