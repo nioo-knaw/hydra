@@ -46,12 +46,13 @@ rule filter_contaminants:
         stats="{project}/stats/{data}_contaminants_stats.txt"
      params:
          phix="/data/db/contaminants/phix/phix.fasta",
-         adapters="/data/ngs/adapters/illumina_scriptseq_and_truseq_adapters.fa"
+         adapters="/data/ngs/adapters/illumina_scriptseq_and_truseq_adapters.fa",
+         quality=config["quality_control"]["trimming"]["quality"]
      log: "{project}/filter/{data}.log"
      conda: "envs/bbmap.yaml"
      threads: 16
      shell:"""bbduk2.sh -Xmx8g in={input.forward} in2={input.reverse} out={output.forward} out2={output.reverse} \
-              lref={params.adapters}, rref={params.adapters} fref={params.phix} qtrim="rl" trimq=30 threads={threads} stats={output.stats} 2> {log}"""
+              lref={params.adapters}, rref={params.adapters} fref={params.phix} qtrim="rl" trimq={params.quality} threads={threads} stats={output.stats} 2> {log}"""
 
 rule contaminants_stats:
     input: expand("{project}/stats/{data}_contaminants_stats.txt",  project=config['project'], data=config["data"])
