@@ -75,6 +75,17 @@ library(phyloseq)
 import_biom(snakemake@input$biom)
 ```
 
+## ampvis
+```{r amvpis, message=FALSE, warning=FALSE}
+library(phyloseq)
+library(ampvis)
+ds <- import_biom(snakemake@input$biom)
+dsn <- transform_sample_counts(ds, function(x) x / sum(x) * 100)
+amp_core(data = dsn, 
+         plot.type = "frequency", 
+         weight = T,
+         scale.seq = 100)
+```
 
 ## Files
 <!--<script src="http://code.jquery.com/jquery-latest.min.js" type="text/javascript"></script>-->
