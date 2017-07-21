@@ -446,7 +446,8 @@ zcat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
 
     rule stampa:
         input:
-            "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+            fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+            db = "SILVA_128_SSURef_tax_silva_3NDf_926R.fasta"
         output:
             swarm="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.fasta",
             hits="{project}/{prog}/stampa/hits.{ds}.minsize{minsize}.{clmethod}_usearch_global",
@@ -454,14 +455,13 @@ zcat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
             taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
         params:
              stampadir="{project}/{prog}/stampa/",
-             db = "SILVA_128_SSURef_tax_silva_3NDf_926R.fasta"
         conda: "envs/vsearch.yaml"
         threads: 32
         # Create STAMPA compatible input
         # Replace underscore in otu names and add fake abundance information
         shell:"""
-            sed 's/_/:/' {input} | awk '/^>/ {{$0=\">\" substr($0,2) \"_1\"}}1' > {output.swarm} && \
-            vsearch --usearch_global {output.swarm}    --threads {threads}     --dbmask none     --qmask none     --rowlen 0     --notrunclabels     --userfields query+id1+target     --maxaccepts 0     --maxrejects 32  --top_hits_only  --output_no_hits     --db {params.db}     --id 0.5     --iddef 1     --userout {output.hits} && \
+            sed 's/_/:/' {input.fasta} | awk '/^>/ {{$0=\">\" substr($0,2) \"_1\"}}1' > {output.swarm} && \
+            vsearch --usearch_global {output.swarm}    --threads {threads}     --dbmask none     --qmask none     --rowlen 0     --notrunclabels     --userfields query+id1+target     --maxaccepts 0     --maxrejects 32  --top_hits_only  --output_no_hits     --db {input.db}     --id 0.5     --iddef 1     --userout {output.hits} && \
             python2.7 stampa_merge.py {params.stampadir} && \
             sed 's/:/_/' {output.results} | sed 's/|/;/g' | cut -f 1,4 > {output.taxonomy}
             """
