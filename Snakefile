@@ -22,6 +22,7 @@ rule final:
 from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
 FTP = FTPRemoteProvider()
 
+"""
 rule unpack_and_rename:
     input:
       forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0], keep_local=False, immediate_close=True) if config["remote"] \
@@ -42,6 +43,7 @@ else lambda wildcards: config["data"][wildcards.data]["path"][1]
         else:
             shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
             shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
+"""
 
 rule filter_contaminants:
      input:
@@ -52,8 +54,8 @@ rule filter_contaminants:
         reverse="{project}/filter/{data}_R2.fastq",
         stats="{project}/stats/{data}_contaminants_stats.txt"
      params:
-         phix="/data/db/contaminants/phix/phix.fasta",
-         adapters="/data/ngs/adapters/illumina_scriptseq_and_truseq_adapters.fa",
+         phix="refs/phix.fasta",
+         adapters="refs/illumina_scriptseq_and_truseq_adapters.fa",
          quality=config["quality_control"]["trimming"]["quality"]
      log: "{project}/filter/{data}.log"
      conda: "envs/bbmap.yaml"
@@ -67,28 +69,28 @@ rule contaminants_stats:
         "{project}/stats/contaminants.txt"
     shell: "grep '#' -v {input} | tr ':' '\t' > {output}"
 
-rule remove_barcodes:
-    input:
-        forward="{project}/filter/{data}_R1.fastq",
-        reverse="{project}/filter/{data}_R2.fastq",
-    output:
-        barcodes=temp("{project}/barcode/{data}/barcodes.fastq"),
-        barcodes_fasta=temp("{project}/barcode/{data}/barcodes.fasta"),
-        forward="{project}/barcode/{data}_R1.fastq",
-        reverse="{project}/barcode/{data}_R2.fastq",
-        forward_unpaired="{project}/barcode/{data}_R1_unpaired.fastq",
-        reverse_unpaired="{project}/barcode/{data}_R2_unpaired.fastq",
-    params:
-        outdir="{project}/barcode/{data}/",
-        threshold=config['quality_control']['barcode']['threshold'],
-        length=config['quality_control']['barcode']['length'],
-        sep=config['quality_control']['barcode']['seperator'] 
-    log: "{project}/barcode/{data}.log"
-    conda: "envs/barcode.yaml"
-    threads: 8
-    shell: """extract_barcodes.py -f {input.forward}  -s{params.sep} -l {params.length} -o {params.outdir} -c barcode_in_label && fastq_to_fasta < {output.barcodes} > {output.barcodes_fasta} && \
-              trimmomatic PE -threads {threads} -phred33 {input.forward} {input.reverse} {output.forward} {output.forward_unpaired} {output.reverse} {output.reverse_unpaired} ILLUMINACLIP:{output.barcodes_fasta}:0:0:{params.threshold} 2> {log}
-"""
+if config["barcode_in_header"]: 
+    rule remove_barcodes:
+        input:
+            forward="{project}/filter/{data}_R1.fastq",
+            reverse="{project}/filter/{data}_R2.fastq",
+        output:
+            barcodes=temp("{project}/barcode/{data}/barcodes.fastq"),
+            barcodes_fasta=temp("{project}/barcode/{data}/barcodes.fasta"),
+            forward="{project}/barcode/{data}_R1.fastq",
+            reverse="{project}/barcode/{data}_R2.fastq",
+            forward_unpaired="{project}/barcode/{data}_R1_unpaired.fastq",
+            reverse_unpaired="{project}/barcode/{data}_R2_unpaired.fastq",
+        params:
+            outdir="{project}/barcode/{data}/",
+            threshold=config['quality_control']['barcode']['threshold'],
+            length=config['quality_control']['barcode']['length'],
+            sep=config['quality_control']['barcode']['seperator'] 
+        log: "{project}/barcode/{data}.log"
+        conda: "envs/barcode.yaml"
+        threads: 8
+        shell: """extract_barcodes.py -f {input.forward}  -s{params.sep} -l {params.length} -o {params.outdir} -c barcode_in_label && fastq_to_fasta < {output.barcodes} > {output.barcodes_fasta} && \
+                  trimmomatic PE -threads {threads} -phred33 {input.forward} {input.reverse} {output.forward} {output.forward_unpaired} {output.reverse} {output.reverse_unpaired} ILLUMINACLIP:{output.barcodes_fasta}:0:0:{params.threshold} 2> {log}"""
 
 rule readstat_reverse:
     input:
@@ -127,7 +129,8 @@ rule fastqc:
 if config['mergepairs'] == 'none':
     rule copy_forward:
         input:
-            forward="{project}/barcode/{data}_R1.fastq"
+            forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R1.fastq",
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         conda: "envs/barcode.yaml"
@@ -137,8 +140,10 @@ if config['mergepairs'] == 'none':
 if config['mergepairs'] == 'pandaseq':
     rule pandaseq:
         input:      
-            forward="{project}/barcode/{data}_R1.fastq",
-            reverse="{project}/barcode/{data}_R2.fastq"
+            forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R1.fastq",
+            reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R1.fastq",
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         params:
@@ -188,8 +193,10 @@ rule readstat_all:
 if config['mergepairs'] == 'vsearch':
     rule mergepairs:
         input:
-            forward="{project}/barcode/{data}_R1.fastq",
-            reverse="{project}/barcode/{data}_R2.fastq"
+            forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R1.fastq",
+            reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R1.fastq",
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         threads: 1
