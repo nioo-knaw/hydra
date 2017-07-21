@@ -59,6 +59,8 @@ def get_sample_files(path):
                 samples[sample_id] = {'path': fastq_paths }
     return samples
 
+def create_metadata_template(outfile, samples):
+    pass
 
 def make_config(config, path):
     """Write the file `config` and complete the sample names and paths for all files in `path`."""
@@ -68,6 +70,7 @@ def make_config(config, path):
 
     conf = OrderedDict()
     samples = get_sample_files(path)
+    create_metadata_template("metadata.txt", samples.keys())
 
     logging.info("Found %d samples under %s" % (len(samples), path))
     conf["project"] = "My-Project"
