@@ -16,7 +16,8 @@ PROJECT = config["project"] + "/"
 rule final:
     input: expand("{project}/stats/contaminants.txt \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
-                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=config['minsize'],clmethod=config['clustering'])
+                   {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom \
+                   {project}/stats/report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=config['minsize'],clmethod=config['clustering'])
 
 
 from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
@@ -43,6 +44,7 @@ else lambda wildcards: config["data"][wildcards.data]["path"][1]
         else:
             shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
             shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
+
 
 rule filter_contaminants:
      input:
@@ -93,7 +95,8 @@ if config["barcode_in_header"]:
 
 rule readstat_reverse:
     input:
-        "{project}/barcode/{data}_R2.fastq"
+          "{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
+          "{project}/filter/{data}_R2.fastq",
     output:
         temporary("{project}/stats/reverse/readstat.{data}.csv")
     log:
