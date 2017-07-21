@@ -127,6 +127,7 @@ def make_config(project,config,path,remote):
         conf["remote"] = True
     else:
         conf["remote"] = False
+    conf["barcode_in_header"]  = False
 
     conf["its"] = False 
     conf["clustering"] =  "usearch_smallmem"
