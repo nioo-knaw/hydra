@@ -22,7 +22,7 @@ rule final:
 from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
 FTP = FTPRemoteProvider()
 
-"""
+
 rule unpack_and_rename:
     input:
       forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0], keep_local=False, immediate_close=True) if config["remote"] \
@@ -43,7 +43,7 @@ else lambda wildcards: config["data"][wildcards.data]["path"][1]
         else:
             shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
             shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
-"""
+
 
 rule filter_contaminants:
      input:
