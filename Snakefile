@@ -44,7 +44,6 @@ else lambda wildcards: config["data"][wildcards.data]["path"][1]
             shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
             shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
 
-
 rule filter_contaminants:
      input:
         forward="{project}/gunzip/{data}_R1.fastq",
@@ -411,6 +410,37 @@ if config["classification"] == "silva":
                """
 
 if config["classification"] == "stampa":
+    rule download_silva:
+        output:
+            "SILVA_128_SSURef_tax_silva_3NDf_926R.fasta"
+        conda: "envs/cutadapt.yaml"
+        # Download script adapted from https://github.com/frederic-mahe/stampa
+        shell: """
+RELEASE=128
+URL="https://www.arb-silva.de/fileadmin/silva_databases/release_${{RELEASE}}/Exports"
+FILE="SILVA_${{RELEASE}}_SSURef_tax_silva.fasta.gz"
+
+# Download and check
+wget -c ${{URL}}/${{FILE}}{{,.md5}} && md5sum -c ${{FILE}}.md5
+
+# Define variables and output files
+INPUT="SILVA_${{RELEASE}}_SSURef_tax_silva.fasta.gz"
+OUTPUT="${{INPUT/.fasta.gz/_3NDf_926R.fasta}}"
+LOG="${{INPUT/.fasta.gz/_515F_926R.log}}"
+PRIMER_F="GGCAAGTCTGGTGCCAG"
+PRIMER_R="ACTTAAAGRAATTGACGGA"
+MIN_LENGTH=32
+MIN_F=$(( ${{#PRIMER_F}} * 2 / 3 ))
+MIN_R=$(( ${{#PRIMER_R}} * 2 / 3 ))
+CUTADAPT="cutadapt --discard-untrimmed --minimum-length ${{MIN_LENGTH}}"
+
+# Trim forward & reverse primers, format
+zcat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
+     ${{CUTADAPT}} -g "${{PRIMER_F}}" -O "${{MIN_F}}" - 2> "${{LOG}}" | \
+     ${{CUTADAPT}} -a "${{PRIMER_R}}" -O "${{MIN_F}}" - 2>> "${{LOG}}" | \
+     sed '/^>/ s/;/|/g ; /^>/ s/ /_/g ; /^>/ s/_/ /1' > "${{OUTPUT}}"
+    """
+
     rule stampa:
         input:
             "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
@@ -421,7 +451,7 @@ if config["classification"] == "stampa":
             taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
         params:
              stampadir="{project}/{prog}/stampa/",
-             db = config['stampa_db']
+             db = "SILVA_128_SSURef_tax_silva_3NDf_926R.fasta"
         conda: "envs/vsearch.yaml"
         threads: 32
         # Create STAMPA compatible input
