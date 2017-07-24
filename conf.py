@@ -60,7 +60,10 @@ def get_sample_files(path):
     return samples
 
 def create_metadata_template(outfile, samples):
-    pass
+   with open(outfile, "w") as f:
+       print("#SampleID\tAlias", file=f)
+       for sample in samples:
+           print("%s\t%s" %  (sample,sample), file=f)
 
 def make_config(config, path):
     """Write the file `config` and complete the sample names and paths for all files in `path`."""
@@ -95,7 +98,7 @@ def make_config(config, path):
     conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
     conf["its"] = False
     conf["mergepairs"] = "vsearch"
-    conf["metadata"] = "../data/metadata.txt"
+    conf["metadata"] = "metadata.txt"
 
     conf["clustering"] =  "usearch_smallmem"
     conf["classification"] = "stampa"
