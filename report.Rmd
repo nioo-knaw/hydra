@@ -79,7 +79,7 @@ import_biom(snakemake@input$biom)
 ```{r amvpis, message=FALSE, warning=FALSE}
 library(phyloseq)
 library(ampvis)
-ds <- import_biom(snakemake@input$biom)
+ds <- import_biom(snakemake@input$biom, parseFunction=parse_taxonomy_greengenes)
 dsn <- transform_sample_counts(ds, function(x) x / sum(x) * 100)
 amp_core(data = dsn, 
          plot.type = "frequency", 
