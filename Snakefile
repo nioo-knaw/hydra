@@ -446,7 +446,7 @@ zcat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
 
     rule stampa:
         input:
-            fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+            fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
             db = "SILVA_128_SSURef_tax_silva_3NDf_926R.fasta"
         output:
             swarm="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.fasta",
