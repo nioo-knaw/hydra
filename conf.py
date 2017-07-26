@@ -84,6 +84,12 @@ def get_sample_files(path, remote):
                 samples[sample_id] = {'path': fastq_paths }
     return samples
 
+def create_metadata_template(outfile, samples):
+   with open(outfile, "w") as f:
+       print("#SampleID\tAlias", file=f)
+       for sample in samples:
+           print("%s\t%s" %  (sample,sample), file=f)
+
 @click.command()
 @click.option('--project', prompt=True, required=True, help='Give your project a nice name')
 @click.option('--config', default="config.yaml", show_default=True, help='File to write the configuration to')
@@ -97,6 +103,7 @@ def make_config(project,config,path,remote):
 
     conf = OrderedDict()
     samples = get_sample_files(path, remote)
+    create_metadata_template("metadata.txt", samples.keys())
 
     logging.info("Found %d samples under %s" % (len(samples), path if remote == None else "remote project %s " % remote))
 
