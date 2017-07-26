@@ -470,11 +470,12 @@ zcat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
         input:
             taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
             biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
+            meta=config["metadata"]
         output:
             biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
             otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
         conda: "envs/biom-format.yaml"
-        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --output-as-json && \
+        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} --output-as-json && \
                   biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
                """
 

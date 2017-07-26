@@ -84,19 +84,30 @@ def get_sample_files(path, remote):
                 samples[sample_id] = {'path': fastq_paths }
     return samples
 
+def create_metadata_template(outfile, samples):
+   with open(outfile, "w") as f:
+       print("#SampleID\tAlias", file=f)
+       for sample in samples:
+           print("%s\t%s" %  (sample,sample), file=f)
+
 @click.command()
 @click.option('--project', prompt=True, required=True, help='Give your project a nice name')
 @click.option('--config', default="config.yaml", show_default=True, help='File to write the configuration to')
 @click.option('--remote', help='Specify a ENA project to use as remote data (for example PRJEB14409')
 @click.option('--path', default="../data", show_default=True, help='path to data folder')
-def make_config(project,config,path,remote):
+def make_config(config, path, remote):
     """Write the file `config` and complete the sample names and paths for all files in `path`."""
     represent_dict_order = lambda self, data:  self.represent_mapping('tag:yaml.org,2002:map', data.items())
     yaml.add_representer(OrderedDict, represent_dict_order)
     path = os.path.realpath(path)
 
     conf = OrderedDict()
+<<<<<<< conf.py
     samples = get_sample_files(path, remote)
+=======
+    samples = get_sample_files(path)
+    create_metadata_template("metadata.txt", samples.keys())
+>>>>>>> conf.py
 
     logging.info("Found %d samples under %s" % (len(samples), path if remote == None else "remote project %s " % remote))
 
@@ -121,6 +132,7 @@ def make_config(project,config,path,remote):
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
 
     conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
+<<<<<<< conf.py
     conf["mergepairs"] = "vsearch"  
     conf["metadata"] = "metadata.txt"
     if remote != None:
@@ -130,6 +142,12 @@ def make_config(project,config,path,remote):
     conf["barcode_in_header"]  = False
 
     conf["its"] = False 
+=======
+    conf["its"] = False
+    conf["mergepairs"] = "vsearch"
+    conf["metadata"] = "metadata.txt"
+
+>>>>>>> conf.py
     conf["clustering"] =  "usearch_smallmem"
     conf["classification"] = "stampa"
 

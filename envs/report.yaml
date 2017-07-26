@@ -8,3 +8,4 @@ dependencies:
   - pandoc
   - r-plotly
   - bioconductor-phyloseq
+  - r-ampvis
