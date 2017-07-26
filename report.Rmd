@@ -75,7 +75,7 @@ library(phyloseq)
 import_biom(snakemake@input$biom)
 ```
 
-## ampvis
+## ampvis plot
 ```{r amvpis, message=FALSE, warning=FALSE}
 library(phyloseq)
 library(ampvis)
