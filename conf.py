@@ -6,6 +6,16 @@ import tempfile
 import yaml
 import sys
 from collections import OrderedDict
+import click
+import urllib
+
+# Adapted from: https://github.com/pnnl/atlas/blob/master/atlas/conf.py
+
+logging.basicConfig(level=logging.INFO, datefmt="%Y-%m-%d %H:%M", format="[%(asctime)s %(levelname)s] %(message)s")
+
+host = "ftp.sra.ebi.ac.uk"
+project = "PRJEB14409"
+#project = "PRJNA319605"
 
 # http://stackoverflow.com/a/3675423
 def replace_last(source_string, replace_what, replace_with):
@@ -15,16 +25,31 @@ def replace_last(source_string, replace_what, replace_with):
     else: 
         return head + replace_with + tail
 
-# Adapted from: https://github.com/pnnl/atlas/blob/master/atlas/conf.py
-def get_sample_files(path):
+def get_ena(project):
+    from urllib import request
+    samples = ""
+    try:
+        samples = request.urlopen("http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession=%s&result=read_run&fields=fastq_ftp" % project).readlines()[1:]
+    except urllib.error.HTTPError:
+        print("Not a valid ENA project")
+    for sample in samples:
+        for fastq in sample.strip().split(b';'):
+            dirpath = os.path.dirname(fastq).decode("utf-8")
+            filename = os.path.basename(fastq).decode("utf-8")
+            yield (dirpath,"",[filename])
+
+def get_sample_files(path, remote):
     samples = OrderedDict()
     seen = set()
-    for dir_name, sub_dirs, files in os.walk(path):
-        print(dir_name, sub_dirs, files)
+    walker = ""
+
+    if remote != None:
+        walker = get_ena(remote)
+    else:
+        walker = os.walk(path)
+    for dir_name, sub_dirs, files in walker:
         for fname in files:
-
             if ".fastq" in fname or ".fq" in fname:
-
                 sample_id = fname.partition(".fastq")[0]
                 if ".fq" in sample_id:
                     sample_id = fname.partition(".fq")[0]
@@ -59,18 +84,24 @@ def get_sample_files(path):
                 samples[sample_id] = {'path': fastq_paths }
     return samples
 
-
-def make_config(config, path):
+@click.command()
+@click.option('--project', prompt=True, required=True, help='Give your project a nice name')
+@click.option('--config', default="config.yaml", show_default=True, help='File to write the configuration to')
+@click.option('--remote', help='Specify a ENA project to use as remote data (for example PRJEB14409')
+@click.option('--path', default="../data", show_default=True, help='path to data folder')
+def make_config(project,config,path,remote):
     """Write the file `config` and complete the sample names and paths for all files in `path`."""
     represent_dict_order = lambda self, data:  self.represent_mapping('tag:yaml.org,2002:map', data.items())
     yaml.add_representer(OrderedDict, represent_dict_order)
     path = os.path.realpath(path)
 
     conf = OrderedDict()
-    samples = get_sample_files(path)
+    samples = get_sample_files(path, remote)
 
-    logging.info("Found %d samples under %s" % (len(samples), path))
-    conf["project"] = "My-Project"
+    logging.info("Found %d samples under %s" % (len(samples), path if remote == None else "remote project %s " % remote))
+
+    conf["project"] = project
+    conf["minsize"] = 2
     conf["adapters_fasta"] = "/data/ngs/adapters/contaminant_list.txt"
     conf["pandaseq_overlap"] = "10"
     conf["pandaseq_quality"] = "25"
@@ -90,10 +121,15 @@ def make_config(config, path):
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
 
     conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
-    conf["its"] = False
-    conf["mergepairs"] = "vsearch"
-    conf["metadata"] = "../data/metadata.txt"
+    conf["mergepairs"] = "vsearch"  
+    conf["metadata"] = "metadata.txt"
+    if remote != None:
+        conf["remote"] = True
+    else:
+        conf["remote"] = False
+    conf["barcode_in_header"]  = False
 
+    conf["its"] = False 
     conf["clustering"] =  "usearch_smallmem"
     conf["classification"] = "stampa"
 
@@ -107,5 +143,4 @@ def make_config(config, path):
     logging.info("Configuration file written to %s" % config)
 
 if __name__ == "__main__": 
-    make_config(config="config.yaml", path=sys.argv[1])
-
+    make_config()

@@ -2,10 +2,14 @@ from snakemake.utils import R
 from snakemake.utils import min_version
 import os
 
-min_version("3.12") # R Markdown reports have been introduced in Snakemake 3.12
+#min_version("3.12") # R Markdown reports have been introduced in Snakemake 3.12
 
 if os.path.isfile("config.yaml"):
     configfile: "config.yaml"
+
+# For a bash shell, needed on docker images to activate conda environments with source
+# http://snakemake.readthedocs.io/en/stable/project_info/faq.html#i-want-to-configure-the-behavior-of-my-shell-for-all-rules-how-can-that-be-achieved-with-snakemake
+shell.executable("/bin/bash")
 
 PROJECT = config["project"] + "/"
 
@@ -13,20 +17,25 @@ rule final:
     input: expand("{project}/stats/contaminants.txt \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom \
-                   {project}/stats/readstat.csv \
-                   {project}/stats/report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']) 
+                   {project}/stats/report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=config['minsize'],clmethod=config['clustering'])
+
+
+from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+FTP = FTPRemoteProvider()
 
 
 rule unpack_and_rename:
     input:
-        forward = lambda wildcards: config["data"][wildcards.data]["path"][0],
-        reverse = lambda wildcards: config["data"][wildcards.data]["path"][1]
+      forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0], keep_local=False, immediate_close=True) if config["remote"] \
+else lambda wildcards: config["data"][wildcards.data]["path"][0],
+       reverse = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][1], keep_local=False, immediate_close=True) if config["remote"] \
+else lambda wildcards: config["data"][wildcards.data]["path"][1]
     output:
         forward="{project}/gunzip/{data}_R1.fastq",
         reverse="{project}/gunzip/{data}_R2.fastq"
     params:
         prefix="{data}"
-    threads: 2
+    threads: 8
     run: 
         if config["convert_to_casava1.8"]:
             # BUGFIX: For baseclear data, convert ti casava 1.8 format and add 0 as tag
@@ -35,6 +44,7 @@ rule unpack_and_rename:
         else:
             shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
             shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
+
 
 rule filter_contaminants:
      input:
@@ -45,8 +55,8 @@ rule filter_contaminants:
         reverse="{project}/filter/{data}_R2.fastq",
         stats="{project}/stats/{data}_contaminants_stats.txt"
      params:
-         phix="/data/db/contaminants/phix/phix.fasta",
-         adapters="/data/ngs/adapters/illumina_scriptseq_and_truseq_adapters.fa",
+         phix="refs/phix.fasta",
+         adapters="refs/illumina_scriptseq_and_truseq_adapters.fa",
          quality=config["quality_control"]["trimming"]["quality"]
      log: "{project}/filter/{data}.log"
      conda: "envs/bbmap.yaml"
@@ -60,32 +70,33 @@ rule contaminants_stats:
         "{project}/stats/contaminants.txt"
     shell: "grep '#' -v {input} | tr ':' '\t' > {output}"
 
-rule remove_barcodes:
-    input:
-        forward="{project}/filter/{data}_R1.fastq",
-        reverse="{project}/filter/{data}_R2.fastq",
-    output:
-        barcodes=temp("{project}/barcode/{data}/barcodes.fastq"),
-        barcodes_fasta=temp("{project}/barcode/{data}/barcodes.fasta"),
-        forward="{project}/barcode/{data}_R1.fastq",
-        reverse="{project}/barcode/{data}_R2.fastq",
-        forward_unpaired="{project}/barcode/{data}_R1_unpaired.fastq",
-        reverse_unpaired="{project}/barcode/{data}_R2_unpaired.fastq",
-    params:
-        outdir="{project}/barcode/{data}/",
-        threshold=config['quality_control']['barcode']['threshold'],
-        length=config['quality_control']['barcode']['length'],
-        sep=config['quality_control']['barcode']['seperator'] 
-    log: "{project}/barcode/{data}.log"
-    conda: "envs/barcode.yaml"
-    threads: 8
-    shell: """extract_barcodes.py -f {input.forward}  -s{params.sep} -l {params.length} -o {params.outdir} -c barcode_in_label && fastq_to_fasta < {output.barcodes} > {output.barcodes_fasta} && \
-              trimmomatic PE -threads {threads} -phred33 {input.forward} {input.reverse} {output.forward} {output.forward_unpaired} {output.reverse} {output.reverse_unpaired} ILLUMINACLIP:{output.barcodes_fasta}:0:0:{params.threshold} 2> {log}
-"""
+if config["barcode_in_header"]: 
+    rule remove_barcodes:
+        input:
+            forward="{project}/filter/{data}_R1.fastq",
+            reverse="{project}/filter/{data}_R2.fastq",
+        output:
+            barcodes=temp("{project}/barcode/{data}/barcodes.fastq"),
+            barcodes_fasta=temp("{project}/barcode/{data}/barcodes.fasta"),
+            forward="{project}/barcode/{data}_R1.fastq",
+            reverse="{project}/barcode/{data}_R2.fastq",
+            forward_unpaired="{project}/barcode/{data}_R1_unpaired.fastq",
+            reverse_unpaired="{project}/barcode/{data}_R2_unpaired.fastq",
+        params:
+            outdir="{project}/barcode/{data}/",
+            threshold=config['quality_control']['barcode']['threshold'],
+            length=config['quality_control']['barcode']['length'],
+            sep=config['quality_control']['barcode']['seperator'] 
+        log: "{project}/barcode/{data}.log"
+        conda: "envs/barcode.yaml"
+        threads: 8
+        shell: """extract_barcodes.py -f {input.forward}  -s{params.sep} -l {params.length} -o {params.outdir} -c barcode_in_label && fastq_to_fasta < {output.barcodes} > {output.barcodes_fasta} && \
+                  trimmomatic PE -threads {threads} -phred33 {input.forward} {input.reverse} {output.forward} {output.forward_unpaired} {output.reverse} {output.reverse_unpaired} ILLUMINACLIP:{output.barcodes_fasta}:0:0:{params.threshold} 2> {log}"""
 
 rule readstat_reverse:
     input:
-        "{project}/barcode/{data}_R2.fastq"
+          "{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
+          "{project}/filter/{data}_R2.fastq",
     output:
         temporary("{project}/stats/reverse/readstat.{data}.csv")
     log:
@@ -120,7 +131,8 @@ rule fastqc:
 if config['mergepairs'] == 'none':
     rule copy_forward:
         input:
-            forward="{project}/barcode/{data}_R1.fastq"
+            forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R1.fastq",
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         conda: "envs/barcode.yaml"
@@ -130,8 +142,10 @@ if config['mergepairs'] == 'none':
 if config['mergepairs'] == 'pandaseq':
     rule pandaseq:
         input:      
-            forward="{project}/barcode/{data}_R1.fastq",
-            reverse="{project}/barcode/{data}_R2.fastq"
+            forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R1.fastq",
+            reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R1.fastq",
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         params:
@@ -181,8 +195,10 @@ rule readstat_all:
 if config['mergepairs'] == 'vsearch':
     rule mergepairs:
         input:
-            forward="{project}/barcode/{data}_R1.fastq",
-            reverse="{project}/barcode/{data}_R2.fastq"
+            forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R1.fastq",
+            reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R1.fastq",
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         threads: 1
@@ -397,9 +413,41 @@ if config["classification"] == "silva":
                """
 
 if config["classification"] == "stampa":
+    rule download_silva:
+        output:
+            "SILVA_128_SSURef_tax_silva_3NDf_926R.fasta"
+        conda: "envs/cutadapt.yaml"
+        # Download script adapted from https://github.com/frederic-mahe/stampa
+        shell: """
+RELEASE=128
+URL="https://www.arb-silva.de/fileadmin/silva_databases/release_${{RELEASE}}/Exports"
+FILE="SILVA_${{RELEASE}}_SSURef_tax_silva.fasta.gz"
+
+# Download and check
+wget -c ${{URL}}/${{FILE}}{{,.md5}} && md5sum -c ${{FILE}}.md5
+
+# Define variables and output files
+INPUT="SILVA_${{RELEASE}}_SSURef_tax_silva.fasta.gz"
+OUTPUT="${{INPUT/.fasta.gz/_3NDf_926R.fasta}}"
+LOG="${{INPUT/.fasta.gz/_515F_926R.log}}"
+PRIMER_F="GGCAAGTCTGGTGCCAG"
+PRIMER_R="ACTTAAAGRAATTGACGGA"
+MIN_LENGTH=32
+MIN_F=$(( ${{#PRIMER_F}} * 2 / 3 ))
+MIN_R=$(( ${{#PRIMER_R}} * 2 / 3 ))
+CUTADAPT="cutadapt --discard-untrimmed --minimum-length ${{MIN_LENGTH}}"
+
+# Trim forward & reverse primers, format
+zcat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
+     ${{CUTADAPT}} -g "${{PRIMER_F}}" -O "${{MIN_F}}" - 2> "${{LOG}}" | \
+     ${{CUTADAPT}} -a "${{PRIMER_R}}" -O "${{MIN_F}}" - 2>> "${{LOG}}" | \
+     sed '/^>/ s/;/|/g ; /^>/ s/ /_/g ; /^>/ s/_/ /1' > "${{OUTPUT}}"
+    """
+
     rule stampa:
         input:
-            "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+            fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
+            db = "SILVA_128_SSURef_tax_silva_3NDf_926R.fasta"
         output:
             swarm="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.fasta",
             hits="{project}/{prog}/stampa/hits.{ds}.minsize{minsize}.{clmethod}_usearch_global",
@@ -407,14 +455,13 @@ if config["classification"] == "stampa":
             taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
         params:
              stampadir="{project}/{prog}/stampa/",
-             db = config['stampa_db']
         conda: "envs/vsearch.yaml"
         threads: 32
         # Create STAMPA compatible input
         # Replace underscore in otu names and add fake abundance information
         shell:"""
-            sed 's/_/:/' {input} | awk '/^>/ {{$0=\">\" substr($0,2) \"_1\"}}1' > {output.swarm} && \
-            vsearch --usearch_global {output.swarm}    --threads {threads}     --dbmask none     --qmask none     --rowlen 0     --notrunclabels     --userfields query+id1+target     --maxaccepts 0     --maxrejects 32  --top_hits_only  --output_no_hits     --db {params.db}     --id 0.5     --iddef 1     --userout {output.hits} && \
+            sed 's/_/:/' {input.fasta} | awk '/^>/ {{$0=\">\" substr($0,2) \"_1\"}}1' > {output.swarm} && \
+            vsearch --usearch_global {output.swarm}    --threads {threads}     --dbmask none     --qmask none     --rowlen 0     --notrunclabels     --userfields query+id1+target     --maxaccepts 0     --maxrejects 32  --top_hits_only  --output_no_hits     --db {input.db}     --id 0.5     --iddef 1     --userout {output.hits} && \
             python2.7 stampa_merge.py {params.stampadir} && \
             sed 's/:/_/' {output.results} | sed 's/|/;/g' | cut -f 1,4 > {output.taxonomy}
             """
@@ -580,4 +627,3 @@ rule report:
     conda: "envs/report.yaml"
     script:
         "report.Rmd"
-
