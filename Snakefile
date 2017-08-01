@@ -23,13 +23,12 @@ rule final:
 from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
 FTP = FTPRemoteProvider()
 
-
 rule unpack_and_rename:
     input:
-      forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0], keep_local=False, immediate_close=True) if config["remote"] \
-else lambda wildcards: config["data"][wildcards.data]["path"][0],
-       reverse = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][1], keep_local=False, immediate_close=True) if config["remote"] \
-else lambda wildcards: config["data"][wildcards.data]["path"][1]
+      forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0], immediate_close=True) if config["remote"] else \
+                                  config["data"][wildcards.data]["path"][0],
+      reverse = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][1], immediate_close=True) if config["remote"] else \
+                                  config["data"][wildcards.data]["path"][1]
     output:
         forward="{project}/gunzip/{data}_R1.fastq",
         reverse="{project}/gunzip/{data}_R2.fastq"

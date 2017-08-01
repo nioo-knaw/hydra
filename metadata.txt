@@ -1,3 +1,0 @@
-#SampleID       Treatment
-sample1 treatment1
-
