@@ -414,7 +414,10 @@ if config["classification"] == "silva":
 if config["classification"] == "stampa":
     rule download_silva:
         output:
-            "SILVA_128_SSURef_tax_silva_3NDf_926R.fasta"
+            "SILVA_128_SSURef_tax_silva_trimmed.fasta"
+        params:
+            forward_primer=config["forward_primer"],
+            reverse_primer=config["reverse_primer"]
         conda: "envs/cutadapt.yaml"
         # Download script adapted from https://github.com/frederic-mahe/stampa
         shell: """
@@ -427,10 +430,10 @@ wget -c ${{URL}}/${{FILE}}{{,.md5}} && md5sum -c ${{FILE}}.md5
 
 # Define variables and output files
 INPUT="SILVA_${{RELEASE}}_SSURef_tax_silva.fasta.gz"
-OUTPUT="${{INPUT/.fasta.gz/_3NDf_926R.fasta}}"
-LOG="${{INPUT/.fasta.gz/_515F_926R.log}}"
-PRIMER_F="GGCAAGTCTGGTGCCAG"
-PRIMER_R="ACTTAAAGRAATTGACGGA"
+OUTPUT="${{INPUT/.fasta.gz/_trimmed.fasta}}"
+LOG="${{INPUT/.fasta.gz/_trimmed.log}}"
+PRIMER_F={params.forward_primer}
+PRIMER_R={params.reverse_primer}
 MIN_LENGTH=32
 MIN_F=$(( ${{#PRIMER_F}} * 2 / 3 ))
 MIN_R=$(( ${{#PRIMER_R}} * 2 / 3 ))
@@ -446,7 +449,7 @@ zcat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
     rule stampa:
         input:
             fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
-            db = "SILVA_128_SSURef_tax_silva_3NDf_926R.fasta"
+            db = "SILVA_128_SSURef_tax_silva_trimmed.fasta"
         output:
             swarm="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.fasta",
             hits="{project}/{prog}/stampa/hits.{ds}.minsize{minsize}.{clmethod}_usearch_global",
@@ -469,11 +472,12 @@ zcat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
         input:
             taxonomy="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
             biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
+            meta=config["metadata"]
         output:
             biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
             otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
         conda: "envs/biom-format.yaml"
-        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --output-as-json && \
+        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} --output-as-json && \
                   biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
                """
 

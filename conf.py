@@ -138,7 +138,7 @@ def make_config(project,config,path,remote):
 
     conf["its"] = False 
     conf["clustering"] =  "usearch_smallmem"
-    conf["classification"] = "stampa"
+    conf["classification"] = "silva"
 
     conf["stampa_db"] = "/data/db/unite/itsx.ITS2.stampa.fasta"
 
