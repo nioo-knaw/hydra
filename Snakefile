@@ -25,9 +25,9 @@ FTP = FTPRemoteProvider()
 
 rule unpack_and_rename:
     input:
-      forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0], immediate_close=True) if config["remote"] else \
+      forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0], keep_local=True, immediate_close=True) if config["remote"] else \
                                   config["data"][wildcards.data]["path"][0],
-      reverse = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][1], immediate_close=True) if config["remote"] else \
+      reverse = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][1], keep_local=True, immediate_close=True) if config["remote"] else \
                                   config["data"][wildcards.data]["path"][1]
     output:
         forward="{project}/gunzip/{data}_R1.fastq",
@@ -43,7 +43,6 @@ rule unpack_and_rename:
         else:
             shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
             shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
-
 
 rule filter_contaminants:
      input:
@@ -349,24 +348,36 @@ rule biom_otu:
 # Taxonomy
 #
 if config["classification"] == "silva":
-    rule sina_parallel_edgar:
+    rule download_silva_arb:
+        output: "SSURef_NR99_128_SILVA_07_09_16_opt.arb"
+        shell: """
+RELEASE=128
+URL="https://www.arb-silva.de/fileadmin/silva_databases/release_${{RELEASE}}/ARB_files"
+
+FILE="SSURef_NR99_${{RELEASE}}_SILVA_07_09_16_opt.arb.gz"
+
+# Download and check
+wget -c ${{URL}}/${{FILE}}{{,.md5}} && md5sum -c ${{FILE}}.md5
+gunzip ${{FILE}}
+"""
+
+    rule sina:
         input:
-            "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+            fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
+            arb="SSURef_NR99_128_SILVA_07_09_16_opt.arb"
         output:
             #align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
             #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
             log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log",
             align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align",
-        params:
-            silva_arb = config["silva_arb"]
         log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
         priority: -1
         threads: 24
         # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
         conda: "envs/sina.yaml"
-        shell: "cat {input} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {params.silva_arb} --overhang remove --turn all --search --search-db {params.silva_arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv || :"
+        shell: "cat {input.fasta} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {input.arb} --overhang remove --turn all --search --search-db {input.arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv || true"
 
-    rule sina_get_taxonomy_from_logfile_edgar:
+    rule sina_get_taxonomy:
         input:
             log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
         output:
