@@ -17,7 +17,7 @@ rule final:
     input: expand("{project}/stats/contaminants.txt \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom \
-                   {project}/stats/report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=config['minsize'],clmethod=config['clustering'])
+                   {project}/report/report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=config['minsize'],clmethod=config['clustering'])
 
 
 from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
@@ -634,9 +634,9 @@ rule report:
         biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
         otutable = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering'])        
     output:
-        "{project}/stats/report.html"
+        "{project}/report/report.html"
     params:
-        prefix="{project}/stats/report",
+        prefix="{project}/report/report",
         mergemethod = config['mergepairs']
     conda: "envs/report.yaml"
     script:
