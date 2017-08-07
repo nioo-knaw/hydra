@@ -15,7 +15,9 @@ output:
     toc_float:
       collapsed: no
       smooth_scroll: yes
+    pandoc_args: ["--filter", "pandoc-fignos"]    
 bibliography: hydra.bib
+link-citations: true
 ---
 # Hydra report for `r snakemake@config$project`
 
@@ -23,8 +25,10 @@ bibliography: hydra.bib
 
 `r if (snakemake@params[["mergemethod"]] == "vsearch") "The fastq_mergeparis option of vsearch [@rognes_vsearch:_2016]" else if (snakemake@params[["mergemethod"]] == "pandaseq") "Pandaseq [@masella_pandaseq:_2012]"` has been used to merge paired-end reads. Sequences are converted to FASTA format and concatenated into a single file.
 All reads are clustering into OTUs using the UPARSE strategy by dereplication, sorting by abundance with at least two sequences and clustering using the UCLUST smallmem algorithm [@edgar_search_2010]. These steps were performed with vsearch.
-Next, chimeric sequences were detected using the UCHIME algorithm (Edgar et al., 2011) implemented in VSEARCH. All reads before the dereplication step were mapped to OTUs using the usearch_global method implemented in VSEARCH to create an otutable and converted to BIOM-Format 1.3.1 (McDonald et al., 2012). 
-Finally, taxonomic information for each OTU was added to the BIOM file by  aligning the sequences to the SILVA database (release 128) (Quast et al., 2013) using SINA (Pruesse et al., 2012) . All steps were implemented in a Snakemake workflow (Köster and Rahmann, 2012) as can be seen in Figure 1.
+Next, chimeric sequences were detected using the UCHIME algorithm in de-novo mode [@edgar_uchime_2011] implemented in VSEARCH. All reads before the dereplication step were mapped to OTUs using the usearch_global method implemented in VSEARCH to create an otutable and converted to BIOM-Format [@mcdonald_biological_2012].
+Finally, taxonomic information for each OTU was added to the BIOM file by  aligning the sequences to the SILVA database (release 128) [@quast_silva_2013] using SINA [@pruesse_sina:_2012] . All steps were implemented in a Snakemake workflow [@koster_snakemakescalable_2012] as can be seen in Figure @fig:description.
+
+![](`r snakemake@input$workflow`){#fig:description}
 
 OTU Clustering method: `r snakemake@config$clustering`
 
@@ -51,11 +55,8 @@ plot.theme <- theme(axis.text.x=element_text(size=12,angle=0,colour="black"),
                     panel.grid.minor=element_line(color="grey95"),
                     strip.text=element_text(size=16),
                     panel.border=element_rect(linetype="solid",colour="grey")
-                    ) 
+                    )
 ```
-
-## Workflow
-![](`r snakemake@input$workflow`)
 
 
 ## Plot
@@ -88,8 +89,8 @@ library(phyloseq)
 library(ampvis)
 ds <- import_biom(snakemake@input$biom, parseFunction=parse_taxonomy_greengenes)
 dsn <- transform_sample_counts(ds, function(x) x / sum(x) * 100)
-amp_core(data = dsn, 
-         plot.type = "frequency", 
+amp_core(data = dsn,
+         plot.type = "frequency",
          weight = T,
          scale.seq = 100)
 ```

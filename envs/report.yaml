@@ -2,10 +2,12 @@ channels:
   - conda-forge
   - bioconda
   - r
+  - ericmjl
 dependencies:
   - rpy2
   - r-rmarkdown=1.6
-  - pandoc
+  - pandoc==1.17.2
   - r-plotly
   - bioconductor-phyloseq
   - r-ampvis
+  - pandoc-fignos
