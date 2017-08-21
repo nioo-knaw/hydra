@@ -20,5 +20,5 @@ stages:
 run:
   stage: run
   script:
-    - python conf.py --project test --remote PRJEB14409
+    - python conf.py --project test --remote PRJEB14409 --clustering usearch_smallmem --classification stampa
     - snakemake  --use-conda -j 8

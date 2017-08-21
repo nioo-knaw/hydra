@@ -95,7 +95,9 @@ def create_metadata_template(outfile, samples):
 @click.option('--config', default="config.yaml", show_default=True, help='File to write the configuration to')
 @click.option('--remote', help='Specify a ENA project to use as remote data (for example PRJEB14409')
 @click.option('--path', default="../data", show_default=True, help='path to data folder')
-def make_config(project,config,path,remote):
+@click.option('--classification', prompt=True, required=True, type=click.Choice(['sina', 'stampa', 'rdp', 'blast']), help="Choose wich classification option you want to use")
+@click.option('--clustering', prompt=True, required=True, default="usearch_smallmem", type=click.Choice(['usearch_smallmem', 'swarm']), help="Choose wich clustering method you want to use")
+def make_config(project,config,path,remote, classification, clustering):
     """Write the file `config` and complete the sample names and paths for all files in `path`."""
     represent_dict_order = lambda self, data:  self.represent_mapping('tag:yaml.org,2002:map', data.items())
     yaml.add_representer(OrderedDict, represent_dict_order)
@@ -136,8 +138,8 @@ def make_config(project,config,path,remote):
     conf["barcode_in_header"]  = False
 
     conf["its"] = False 
-    conf["clustering"] =  "usearch_smallmem"
-    conf["classification"] = "silva"
+    conf["clustering"] =  clustering
+    conf["classification"] = classification
 
     conf["convert_to_casava1.8"] = False
     conf["data"] = samples
