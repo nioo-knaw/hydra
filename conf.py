@@ -127,7 +127,6 @@ def make_config(project,config,path,remote):
     conf["forward_primer"] = "CCTACGGGNGGCWGCAG"
     conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
 
-    conf["silva_arb"] = "/data/db/Silva/128/SSURef_NR99_128_SILVA_07_09_16_opt.arb"
     conf["mergepairs"] = "vsearch"  
     conf["metadata"] = "metadata.txt"
     if remote != None:
@@ -139,8 +138,6 @@ def make_config(project,config,path,remote):
     conf["its"] = False 
     conf["clustering"] =  "usearch_smallmem"
     conf["classification"] = "silva"
-
-    conf["stampa_db"] = "/data/db/unite/itsx.ITS2.stampa.fasta"
 
     conf["convert_to_casava1.8"] = False
     conf["data"] = samples
