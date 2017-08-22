@@ -457,10 +457,51 @@ zcat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
      sed '/^>/ s/;/|/g ; /^>/ s/ /_/g ; /^>/ s/_/ /1' > "${{OUTPUT}}"
     """
 
+    rule download_unite:
+        output:
+            "UNITE-7.2-28.06.2017.fasta"
+        params:
+            forward_primer=config["forward_primer"],
+            reverse_primer=config["reverse_primer"]
+        conda: "envs/cutadapt.yaml"
+
+        shell:"""
+RELEASE=7.2
+DATE=28.06.2017
+URL="https://unite.ut.ee/sh_files/"
+FILE="UNITE_public_${{DATE}}.fasta.zip"
+
+# Download and check
+wget -c ${{URL}}/${{FILE}} && unzip -f ${{FILE}}
+
+# Define variables and output files
+PRIMER_F={params.forward_primer}
+PRIMER_R={params.reverse_primer}
+FNAME=ITS9
+RNAME=ITS4
+INPUT="UNITE_public_${{DATE}}.fasta"
+OUTPUT="UNITE-${{RELEASE}}-${{DATE}}.fasta"
+LOG="UNITE-${{RELEASE}}_${{DATE}}.log"
+MIN_LENGTH=32
+MIN_F=$(( ${{#PRIMER_F}} * 2 / 3 ))
+MIN_R=$(( ${{#PRIMER_R}} * 2 / 3 ))
+CUTADAPT="cutadapt --discard-untrimmed --minimum-length ${MIN_LENGTH}"
+
+# Trim forward & reverse primers, format
+cat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
+     ${{CUTADAPT}} -g "${{PRIMER_F}}" -O "${{MIN_F}}" - 2> "${{LOG}}" | \
+     ${{CUTADAPT}} -a "${{PRIMER_R}}" -O "${{MIN_F}}" - 2>> "${{LOG}}" | \
+     sed 's/\ /+/'g | sed 's/|/\ /'g | sed 's/;/|/g' | \
+     awk '/^>/ {{env=index($0,"s__Fungi_sp");}} {{if (!env) print;}}' | \
+     awk '/^>/ {{env=index($0,"k__Fungi");}} {{if (env) print;}}' > "${{OUTPUT}}"
+"""
+
     rule stampa:
         input:
             fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
-            db = "SILVA_128_SSURef_tax_silva_trimmed.fasta"
+            db = "SILVA_128_SSURef_tax_silva_trimmed.fasta" if config["reference_db"] == "silva" else\
+          "{project}/filter/{data}_R2.fastq",
+            #db = "SILVA_128_SSURef_tax_silva_trimmed.fasta"
         output:
             swarm="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.fasta",
             hits="{project}/{prog}/stampa/hits.{ds}.minsize{minsize}.{clmethod}_usearch_global",
