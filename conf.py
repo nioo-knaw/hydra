@@ -100,8 +100,9 @@ def create_metadata_template(outfile, samples):
 @click.option('--reverse_primer', prompt="Which reverse primer did you use?", required=True, default="GACTACHVGGGTATCTAATCC", help="Which reverse primer did you use?")
 @click.option('--mergepairs', prompt="Choose wich method to use for stitching paired reads (vsearch, pandaseq)", required=True, default="vsearch", type=click.Choice(['pandaseq', 'vsearch', 'none']), help="Choose wich method to use for stitching paired reads")
 @click.option('--classification', prompt="Choose wich classification option you want to use (sina, stampa, rdp, blast)", required=True, type=click.Choice(['sina', 'stampa', 'rdp', 'blast']), help="Choose wich classification option you want to use")
+@click.option('--reference_db', prompt="Choose wich reference database to use (silva, unite)", required=True, type=click.Choice(['silva', 'unite']), help="Choose wich reference database to use")
 @click.option('--clustering', prompt="Choose wich clustering method you want to use (usearch_smallmem, swarm)", required=True, default="usearch_smallmem", type=click.Choice(['usearch_smallmem', 'swarm']), help="Choose wich clustering method you want to use")
-def make_config(project,config,path,remote, forward_primer, reverse_primer, mergepairs, classification, clustering):
+def make_config(project,config,path,remote, forward_primer, reverse_primer, mergepairs, classification, reference_db, clustering):
     """Write the file `config` and complete the sample names and paths for all files in `path`."""
     represent_dict_order = lambda self, data:  self.represent_mapping('tag:yaml.org,2002:map', data.items())
     yaml.add_representer(OrderedDict, represent_dict_order)
@@ -144,6 +145,7 @@ def make_config(project,config,path,remote, forward_primer, reverse_primer, merg
     conf["its"] = False 
     conf["clustering"] =  clustering
     conf["classification"] = classification
+    conf["reference_db"] = reference_db
 
     conf["convert_to_casava1.8"] = False
     conf["data"] = samples

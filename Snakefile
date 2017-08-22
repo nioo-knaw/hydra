@@ -472,7 +472,8 @@ URL="https://unite.ut.ee/sh_files/"
 FILE="UNITE_public_${{DATE}}.fasta.zip"
 
 # Download and check
-wget -c ${{URL}}/${{FILE}} && unzip -f ${{FILE}}
+wget -c ${{URL}}/${{FILE}}
+unzip ${{FILE}}
 
 # Define variables and output files
 PRIMER_F={params.forward_primer}
@@ -485,7 +486,7 @@ LOG="UNITE-${{RELEASE}}_${{DATE}}.log"
 MIN_LENGTH=32
 MIN_F=$(( ${{#PRIMER_F}} * 2 / 3 ))
 MIN_R=$(( ${{#PRIMER_R}} * 2 / 3 ))
-CUTADAPT="cutadapt --discard-untrimmed --minimum-length ${MIN_LENGTH}"
+CUTADAPT="cutadapt --discard-untrimmed --minimum-length ${{MIN_LENGTH}}"
 
 # Trim forward & reverse primers, format
 cat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
@@ -499,9 +500,7 @@ cat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
     rule stampa:
         input:
             fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
-            db = "SILVA_128_SSURef_tax_silva_trimmed.fasta" if config["reference_db"] == "silva" else\
-          "{project}/filter/{data}_R2.fastq",
-            #db = "SILVA_128_SSURef_tax_silva_trimmed.fasta"
+            db = "SILVA_128_SSURef_tax_silva_trimmed.fasta" if config["reference_db"] == "silva" else "UNITE-7.2-28.06.2017.fasta" if config["reference_db"] == "unite" else None,
         output:
             swarm="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.fasta",
             hits="{project}/{prog}/stampa/hits.{ds}.minsize{minsize}.{clmethod}_usearch_global",
