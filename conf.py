@@ -91,11 +91,18 @@ def create_metadata_template(outfile, samples):
            print("%s\t%s" %  (sample,sample), file=f)
 
 @click.command()
-@click.option('--project', prompt=True, required=True, help='Give your project a nice name')
+@click.option('--project', prompt="Give your project a unique name", required=True, help='Give your project a nice name')
 @click.option('--config', default="config.yaml", show_default=True, help='File to write the configuration to')
 @click.option('--remote', help='Specify a ENA project to use as remote data (for example PRJEB14409')
 @click.option('--path', default="../data", show_default=True, help='path to data folder')
-def make_config(project,config,path,remote):
+
+@click.option('--forward_primer', prompt="Which forward primer did you use?", required=True, default="CCTACGGGNGGCWGCAG", help="Which forward primer did you use?")
+@click.option('--reverse_primer', prompt="Which reverse primer did you use?", required=True, default="GACTACHVGGGTATCTAATCC", help="Which reverse primer did you use?")
+@click.option('--mergepairs', prompt="Choose wich method to use for stitching paired reads (vsearch, pandaseq)", required=True, default="vsearch", type=click.Choice(['pandaseq', 'vsearch', 'none']), help="Choose wich method to use for stitching paired reads")
+@click.option('--classification', prompt="Choose wich classification option you want to use (sina, stampa, rdp, blast)", required=True, type=click.Choice(['sina', 'stampa', 'rdp', 'blast']), help="Choose wich classification option you want to use")
+@click.option('--reference_db', prompt="Choose wich reference database to use (silva, unite)", required=True, type=click.Choice(['silva', 'unite']), help="Choose wich reference database to use")
+@click.option('--clustering', prompt="Choose wich clustering method you want to use (usearch_smallmem, swarm)", required=True, default="usearch_smallmem", type=click.Choice(['usearch_smallmem', 'swarm']), help="Choose wich clustering method you want to use")
+def make_config(project,config,path,remote, forward_primer, reverse_primer, mergepairs, classification, reference_db, clustering):
     """Write the file `config` and complete the sample names and paths for all files in `path`."""
     represent_dict_order = lambda self, data:  self.represent_mapping('tag:yaml.org,2002:map', data.items())
     yaml.add_representer(OrderedDict, represent_dict_order)
@@ -124,10 +131,10 @@ def make_config(project,config,path,remote):
     conf["quality_control"]["trimming"] = OrderedDict()
     conf["quality_control"]["trimming"]["quality"] = 25
 
-    conf["forward_primer"] = "CCTACGGGNGGCWGCAG"
-    conf["reverse_primer"] = "GACTACHVGGGTATCTAATCC"
+    conf["forward_primer"] = forward_primer
+    conf["reverse_primer"] = reverse_primer
 
-    conf["mergepairs"] = "vsearch"  
+    conf["mergepairs"] = mergepairs
     conf["metadata"] = "metadata.txt"
     if remote != None:
         conf["remote"] = True
@@ -136,8 +143,9 @@ def make_config(project,config,path,remote):
     conf["barcode_in_header"]  = False
 
     conf["its"] = False 
-    conf["clustering"] =  "usearch_smallmem"
-    conf["classification"] = "silva"
+    conf["clustering"] =  clustering
+    conf["classification"] = classification
+    conf["reference_db"] = reference_db
 
     conf["convert_to_casava1.8"] = False
     conf["data"] = samples
