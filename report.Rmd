@@ -126,21 +126,24 @@ function dataURItoBlob(dataURI, callback) {
 }
 </script>
 
-<a id="download" href="link">Download BIOM file</a>
-
+<a id="biom" href="link">Download BIOM file</a>
 <script>
 dataURL = "`r base64enc::dataURI(file = snakemake@input$biom, mime = 'text/csv', encoding = 'base64')`"
-
-download(dataURItoBlob(dataURL), "#download", "`r basename(snakemake@input$biom)`", 'text/plain')
+download(dataURItoBlob(dataURL), "#biom", "`r basename(snakemake@input$biom)`", 'text/plain')
 </script>
 
 <a id="otutable" href="link">Download otutable in txt format</a>
-
 <script>
 dataURL = "`r base64enc::dataURI(file = snakemake@input$otutable, mime = 'text/csv', encoding = 'base64')`"
-
 download(dataURItoBlob(dataURL), "#otutable", "`r basename(snakemake@input$otutable)`", 'text/plain')
 </script>
+
+<a id="otus" href="link">Download otutable in txt format</a>
+<script>
+dataURL = "`r base64enc::dataURI(file = snakemake@input$otus, mime = 'text/csv', encoding = 'base64')`"
+download(dataURItoBlob(dataURL), "#otus", "`r basename(snakemake@input$otus)`", 'text/plain')
+</script>
+
 
 <a download="readstat.csv" href="`r base64enc::dataURI(file = snakemake@input$readstat, mime = 'text/csv', encoding = 'base64')`">Readstat csv file</a>
 
