@@ -676,7 +676,8 @@ rule report:
         readstat = "{project}/stats/readstat.csv",
         readstat_reverse = "{project}/stats/readstat_R2.csv",
         biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
-        otutable = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering'])        
+        otutable = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
+        otus= "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
     output:
         "{project}/report/report.html"
     params:
