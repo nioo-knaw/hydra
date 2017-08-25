@@ -21,12 +21,13 @@ link-citations: true
 ---
 # Hydra report for `r snakemake@config$project`
 
-## Methods
+## Methods template
 
+This analysis is performed by the Hydra pipeline [@hollander_nioo-knaw/hydra:_2017] implemented in Snakemake [@koster_snakemakescalable_2012]. All steps can be seen in figure @fig:description.
 `r if (snakemake@params[["mergemethod"]] == "vsearch") "The fastq_mergeparis option of vsearch [@rognes_vsearch:_2016]" else if (snakemake@params[["mergemethod"]] == "pandaseq") "Pandaseq [@masella_pandaseq:_2012]"` has been used to merge paired-end reads. Sequences are converted to FASTA format and concatenated into a single file.
-All reads are clustering into OTUs using the UPARSE strategy by dereplication, sorting by abundance with at least two sequences and clustering using the UCLUST smallmem algorithm [@edgar_search_2010]. These steps were performed with vsearch.
+All reads are clustered into OTUs using `r if (snakemake@config$clustering == "usearch_smallmem") "the UPARSE strategy by dereplication, sorting by abundance with at least two sequences and clustering using the UCLUST smallmem algorithm [@edgar_search_2010]. These steps were performed with vsearch."`
 Next, chimeric sequences were detected using the UCHIME algorithm in de-novo mode [@edgar_uchime_2011] implemented in VSEARCH. All reads before the dereplication step were mapped to OTUs using the usearch_global method implemented in VSEARCH to create an otutable and converted to BIOM-Format [@mcdonald_biological_2012].
-Finally, taxonomic information for each OTU was added to the BIOM file by  aligning the sequences to the SILVA database (release 128) [@quast_silva_2013] using SINA [@pruesse_sina:_2012] . All steps were implemented in a Snakemake workflow [@koster_snakemakescalable_2012] as can be seen in Figure @fig:description.
+Finally, taxonomic information for each OTU was added to the BIOM file by `r if (snakemake@config$classification == "silva") "aligning the sequences to the SILVA database (release 128) [@quast_silva_2013] using SINA [@pruesse_sina:_2012]" else if (snakemake@config$classification == "stampa") paste("aligning the sequences to the SILVA database (release 128) [@quast_silva_2013]. First the references sequences are trimmed with the forward (", snakemake@config$forward_primer, ") and reverse(", snakemake@config$reverse_primer, ") primer using cutadapt [@martin_cutadapt_2011]. Next, sequences are aligned using the usearch_global method implemented in vsearch. At last, the last common ancestor taxonomy is determined for the top hits using a python script provided by STAMPA [@mahe_stampa:_2017]") else if (snakemake@config$classification == "rdp") "running the RDP Classifier re-trained on the UNITE database"`.
 
 ![](`r snakemake@input$workflow`){#fig:description}
 
