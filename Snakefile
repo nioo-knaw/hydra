@@ -576,10 +576,10 @@ if config["classification"] == "blast":
         input:
             taxonomy="{project}/{prog}/blast/{ds}.minsize{minsize}.{clmethod}.taxonomy.txt",
             biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
+            meta=config["metadata"]
         output:
             biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
             otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
-            meta=config["metadata"]
         conda: "envs/biom-format.yaml"
         shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-meta
 data-fp {input.meta} --output-as-json && \
@@ -655,11 +655,11 @@ if config["classification"] == "rdp":
     rule biom_tax_rdp:
         input:
             biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
-            taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.filtered.rdp"       
+            taxonomy="{project}/{prog}/rdp/{ds}.minsize{minsize}.{clmethod}.filtered.rdp",
+            meta=config["metadata"]
         output:
             biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
             otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
-            meta=config["metadata"]
         conda: "envs/biom-format.yaml"
         shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-meta
 data-fp {input.meta} --output-as-json && \
