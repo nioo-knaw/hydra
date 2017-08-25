@@ -99,9 +99,9 @@ amp_core(data = dsn,
 ## Downloads
 <!--<script src="http://code.jquery.com/jquery-latest.min.js" type="text/javascript"></script>-->
 <script>
-function download(text, name, type) {
+function download(text, id, name, type) {
   var file = new Blob([text], {type: type})
-  var a = $("#download")
+  var a = $(id)
   a[0].href = URL.createObjectURL(file)
   a[0].download = name
 }
@@ -126,20 +126,24 @@ function dataURItoBlob(dataURI, callback) {
 }
 </script>
 
-<a id="download" href="link">Download BIOM file</a>
-
+<a id="biom" href="link">Download BIOM file</a>
 <script>
 dataURL = "`r base64enc::dataURI(file = snakemake@input$biom, mime = 'text/csv', encoding = 'base64')`"
-
-download(dataURItoBlob(dataURL), "`r basename(snakemake@input$biom)`", 'text/plain')
+download(dataURItoBlob(dataURL), "#biom", "`r basename(snakemake@input$biom)`", 'text/plain')
 </script>
 
-<a id="download" href="link">Download otutable in txt format</a>
-
+<a id="otutable" href="link">Download otutable in txt format</a>
 <script>
 dataURL = "`r base64enc::dataURI(file = snakemake@input$otutable, mime = 'text/csv', encoding = 'base64')`"
-download(dataURItoBlob(dataURL), "`r basename(snakemake@input$otutable)`", 'text/plain')
+download(dataURItoBlob(dataURL), "#otutable", "`r basename(snakemake@input$otutable)`", 'text/plain')
 </script>
+
+<a id="otus" href="link">Download otutable in txt format</a>
+<script>
+dataURL = "`r base64enc::dataURI(file = snakemake@input$otus, mime = 'text/csv', encoding = 'base64')`"
+download(dataURItoBlob(dataURL), "#otus", "`r basename(snakemake@input$otus)`", 'text/plain')
+</script>
+
 
 <a download="readstat.csv" href="`r base64enc::dataURI(file = snakemake@input$readstat, mime = 'text/csv', encoding = 'base64')`">Readstat csv file</a>
 
