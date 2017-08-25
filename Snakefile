@@ -579,8 +579,10 @@ if config["classification"] == "blast":
         output:
             biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
             otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
+            meta=config["metadata"]
         conda: "envs/biom-format.yaml"
-        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --output-as-json && \
+        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-meta
+data-fp {input.meta} --output-as-json && \
                   biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
                """
 
@@ -630,7 +632,7 @@ if config["classification"] == "rdp":
                          elif tax_level == "species":
                              tax_prefix = "s__"
 
-                         if confidence > params.cutoff:
+                         if confidence > float(params.cutoff):
                              tax_list.append(tax_prefix + taxonomy)
                          else:
                              tax_list.append(tax_prefix + "unclassified")
@@ -657,8 +659,10 @@ if config["classification"] == "rdp":
         output:
             biom="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom",
             otutable="{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt"
+            meta=config["metadata"]
         conda: "envs/biom-format.yaml"
-        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --output-as-json && \
+        shell: """biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-meta
+data-fp {input.meta} --output-as-json && \
                   biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
                """
 
