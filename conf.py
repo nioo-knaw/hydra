@@ -145,7 +145,7 @@ def make_config(project,config,path,remote, forward_primer, reverse_primer, merg
     conf["its"] = False 
     conf["clustering"] =  clustering
     conf["classification"] = classification
-    rdp_confidence_cutoff = 0.80
+    conf["rdp_confidence_cutoff"] = 0.80
     conf["reference_db"] = reference_db
 
     conf["convert_to_casava1.8"] = False
