@@ -347,7 +347,7 @@ rule biom_otu:
 #
 # Taxonomy
 #
-if config["classification"] == "silva":
+if config["classification"] == "sina":
     rule download_silva_arb:
         output: "SSURef_NR99_128_SILVA_07_09_16_opt.arb"
         shell: """
