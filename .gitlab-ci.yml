@@ -27,5 +27,5 @@ run:
 sina:
   stage: sina
   script:
-    - python conf.py --project test --remote PRJEB14409 --clustering usearch_smallmem --classification silva --forward_primer CCTACGGGNGGCWGCAG --reverse_primer GACTACHVGGGTATCTAATCC --mergepairs vsearch --reference_db silva
+    - python conf.py --project test --remote PRJEB14409 --clustering usearch_smallmem --classification sina --forward_primer CCTACGGGNGGCWGCAG --reverse_primer GACTACHVGGGTATCTAATCC --mergepairs vsearch --reference_db silva
     - snakemake  --use-conda -j 8
