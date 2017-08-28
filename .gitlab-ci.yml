@@ -10,6 +10,7 @@ before_script:
 stages:
     - rulegraph
     - run
+    - sina
     
 # DAG
 #rulegraph:
@@ -21,4 +22,10 @@ run:
   stage: run
   script:
     - python conf.py --project test --remote PRJEB14409 --clustering usearch_smallmem --classification stampa --forward_primer CCTACGGGNGGCWGCAG --reverse_primer GACTACHVGGGTATCTAATCC --mergepairs vsearch --reference_db silva
+    - snakemake  --use-conda -j 8
+
+sina:
+  stage: sina
+  script:
+    - python conf.py --project test --remote PRJEB14409 --clustering usearch_smallmem --classification silva --forward_primer CCTACGGGNGGCWGCAG --reverse_primer GACTACHVGGGTATCTAATCC --mergepairs vsearch --reference_db silva
     - snakemake  --use-conda -j 8
