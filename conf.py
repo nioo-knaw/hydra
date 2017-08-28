@@ -81,6 +81,7 @@ def get_sample_files(path, remote):
                 if sample_id in samples:
                     logging.warn("Duplicate sample %s was found after renaming; skipping..." % sample_id)
                     continue
+
                 samples[sample_id] = {'path': fastq_paths }
     return samples
 
@@ -95,6 +96,7 @@ def create_metadata_template(outfile, samples):
 @click.option('--config', default="config.yaml", show_default=True, help='File to write the configuration to')
 @click.option('--remote', help='Specify a ENA project to use as remote data (for example PRJEB14409')
 @click.option('--path', default="../data", show_default=True, help='path to data folder')
+@click.option('--rename', required=False, help='provide a file for renaming samples')
 
 @click.option('--forward_primer', prompt="Which forward primer did you use?", required=True, default="CCTACGGGNGGCWGCAG", help="Which forward primer did you use?")
 @click.option('--reverse_primer', prompt="Which reverse primer did you use?", required=True, default="GACTACHVGGGTATCTAATCC", help="Which reverse primer did you use?")
@@ -102,7 +104,7 @@ def create_metadata_template(outfile, samples):
 @click.option('--classification', prompt="Choose wich classification option you want to use (sina, stampa, rdp, blast)", required=True, type=click.Choice(['sina', 'stampa', 'rdp', 'blast']), help="Choose wich classification option you want to use")
 @click.option('--reference_db', prompt="Choose wich reference database to use (silva, unite)", required=True, type=click.Choice(['silva', 'unite']), help="Choose wich reference database to use")
 @click.option('--clustering', prompt="Choose wich clustering method you want to use (usearch_smallmem, swarm)", required=True, default="usearch_smallmem", type=click.Choice(['usearch_smallmem', 'swarm']), help="Choose wich clustering method you want to use")
-def make_config(project,config,path,remote, forward_primer, reverse_primer, mergepairs, classification, reference_db, clustering):
+def make_config(project,config,path,remote, rename, forward_primer, reverse_primer, mergepairs, classification, reference_db, clustering):
     """Write the file `config` and complete the sample names and paths for all files in `path`."""
     represent_dict_order = lambda self, data:  self.represent_mapping('tag:yaml.org,2002:map', data.items())
     yaml.add_representer(OrderedDict, represent_dict_order)
@@ -110,9 +112,19 @@ def make_config(project,config,path,remote, forward_primer, reverse_primer, merg
 
     conf = OrderedDict()
     samples = get_sample_files(path, remote)
+    if rename:
+        renamed = 0
+        for line in open(rename):
+            sample, newname = line.split()
+            if sample in samples:
+                samples[newname] = samples.pop(sample)
+                renamed += 1
+
     create_metadata_template("metadata.txt", samples.keys())
 
     logging.info("Found %d samples under %s" % (len(samples), path if remote == None else "remote project %s " % remote))
+    if rename:
+        logging.info("Renamed %d samples" % renamed)
 
     conf["project"] = project
     conf["minsize"] = 2
