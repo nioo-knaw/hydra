@@ -143,7 +143,7 @@ if config['mergepairs'] == 'pandaseq':
             forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
                     "{project}/filter/{data}_R1.fastq",
             reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
-                    "{project}/filter/{data}_R1.fastq",
+                    "{project}/filter/{data}_R2.fastq",
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         params:
@@ -196,7 +196,7 @@ if config['mergepairs'] == 'vsearch':
             forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
                     "{project}/filter/{data}_R1.fastq",
             reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
-                    "{project}/filter/{data}_R1.fastq",
+                    "{project}/filter/{data}_R2.fastq",
         output:
             fasta = "{project}/mergepairs/{data}.fasta"
         threads: 1
