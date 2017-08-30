@@ -1,6 +1,8 @@
 ## 1.3.3 (unreleased)
 - Allow renaming samples during configuration
-- Bugfix: rename classification method silva to sina
+- Bugfixes:
+  - rename classification method silva to sina
+  - Fix merging pairs when not using barcode_in_header option
 
 ## 1.3.2
 - Bugfixes:
