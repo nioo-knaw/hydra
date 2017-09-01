@@ -1,5 +1,6 @@
-## 1.3.3 (unreleased)
+## 1.3.3
 - Allow renaming samples during configuration
+- Automatically replace underscores in sample names
 - Bugfixes:
   - rename classification method silva to sina
   - Fix merging pairs when not using barcode_in_header option
