@@ -52,7 +52,7 @@ def get_sample_files(path, remote):
             if ".fastq" in fname or ".fq" in fname:
                 sample_id = fname.partition(".fastq")[0]
                 if ".fq" in sample_id:
-                    sample_id = fname.partition(".fq")[0]
+                    sample_id = fname.partition(".fq")[0].replace("_","-")
 
                 sample_id = sample_id.replace("_R1", "").replace("_r1", "").replace("_R2", "").replace("_r2", "")
                 sample_id = re.sub("_1$", "", sample_id)
@@ -117,6 +117,7 @@ def make_config(project,config,path,remote, rename, forward_primer, reverse_prim
         for line in open(rename):
             sample, newname = line.split()
             if sample in samples:
+                newname = newname.replace("_","-")
                 samples[newname] = samples.pop(sample)
                 renamed += 1
 
