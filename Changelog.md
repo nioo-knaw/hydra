@@ -1,3 +1,6 @@
+## 1.3.4 (unreleased)
+- Add ITSx to methods report
+
 ## 1.3.3
 - Allow renaming samples during configuration
 - Automatically replace underscores in sample names
@@ -14,7 +17,7 @@
   - bbduk filtering
   - txt otutable download
   - otu fasta download
-  
+
 ## 1.3.1
 - improved the automatic method template in the report
 - Allow more settings to be automatically defined in conf.py:
