@@ -1,5 +1,6 @@
 ## 1.3.4 (unreleased)
 - Add ITSx to methods report
+- Add conda support for ITSx
 
 ## 1.3.3
 - Allow renaming samples during configuration
