@@ -1,5 +1,5 @@
 channels:
   - bioconda
 dependencies:
-  - bbmap==37.17
+  - bbmap
 
