@@ -213,10 +213,11 @@ if config['its'] == True:
                     basename="{project}/itsx/{data}",
                     dir="{project}/itsx"
             log: "itsx.log"
-            threads: 4
+            threads: 32
+            conda: "envs/itsx.yaml"
             # TODO: Filter on specific list of organisms? 
             # Only ITS2 region?
-            shell: "source /data/tools/hmmer/3.0/env.sh; /data/tools/ITSx/1.0.10/ITSx --cpu {threads} --preserve TRUE -i {input.fasta} -o {params.basename} > {params.dir}/{log}"
+            shell: "ITSx --cpu {threads} --preserve TRUE -i {input.fasta} -o {params.basename} > {params.dir}/{log}"
 
 # Combine per sample files to a single project file
 rule mergefiles:
