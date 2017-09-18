@@ -1,7 +1,7 @@
-## 1.3.4 (unreleased)
+## 1.3.4
 - Add ITSx to methods report
 - Add conda support for ITSx
-- Keep bbmap to 
+- Change from bbduk2.sh to bbduk.sh because it has been removed from the latest release 
 
 ## 1.3.3
 - Allow renaming samples during configuration
