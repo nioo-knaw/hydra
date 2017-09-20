@@ -350,7 +350,7 @@ rule biom_otu:
 #
 if config["classification"] == "sina":
     rule download_silva_arb:
-        output: "SSURef_NR99_128_SILVA_07_09_16_opt.arb"
+        output: temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb")
         shell: """
 RELEASE=128
 URL="https://www.arb-silva.de/fileadmin/silva_databases/release_${{RELEASE}}/ARB_files"
@@ -361,22 +361,40 @@ FILE="SSURef_NR99_${{RELEASE}}_SILVA_07_09_16_opt.arb.gz"
 wget -c ${{URL}}/${{FILE}}{{,.md5}} && md5sum -c ${{FILE}}.md5
 gunzip ${{FILE}}
 """
+    rule create_index_sina:
+        input:
+            "SSURef_NR99_128_SILVA_07_09_16_opt.arb"
+        output:
+            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb"),
+            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb.pt"),
+            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARM"),
+            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARF")
+
+        conda: "envs/sina.yaml"
+        shell: """
+cp SSURef_NR99_128_SILVA_07_09_16_opt.arb SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
+arb_pt_server -build_clean -DSSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
+arb_pt_server -build -DSSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
+"""
+
 
     rule sina:
         input:
             fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
-            arb="SSURef_NR99_128_SILVA_07_09_16_opt.arb"
+            arb="SSURef_NR99_128_SILVA_07_09_16_opt.arb",
+            index="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb.pt",
+            "SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARM",
+            "SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARF"
         output:
             #align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
             #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
             log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log",
             align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align",
-        log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
         priority: -1
         threads: 24
         # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
         conda: "envs/sina.yaml"
-        shell: "cat {input.fasta} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {input.arb} --overhang remove --turn all --search --search-db {input.arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv || true"
+        shell: "cat {input.fasta} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {output.log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {input.arb} --overhang remove --turn all --search --search-db {input.arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv || true"
 
     rule sina_get_taxonomy:
         input:
