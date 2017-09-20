@@ -1,3 +1,7 @@
+### 1.3.5 (unreleased)
+- Add LCA executable for filtering Blastn results
+- Add blast classification description to the report
+
 ## 1.3.4
 - Add ITSx to methods report
 - Add conda support for ITSx
