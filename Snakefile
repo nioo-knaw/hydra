@@ -571,7 +571,7 @@ if config["classification"] == "blast":
                     line = line.strip()
                     if line.startswith(">"):
                         if line[1:] not in hits:
-                            outfile.write("%s\td__?;p__?;c__?;o__?;f__?;g__?;s__?\n" % line[1:])
+                            outfile.write("%s\tk__?;p__?;c__?;o__?;f__?;g__?;s__?\n" % line[1:])
 
     rule biom_tax_blast:
         input:
