@@ -23,31 +23,38 @@ rule final:
 from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
 FTP = FTPRemoteProvider()
 
-rule unpack_and_rename:
+rule rename:
     input:
       forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0], keep_local=True, immediate_close=True) if config["remote"] else \
                                   config["data"][wildcards.data]["path"][0],
       reverse = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][1], keep_local=True, immediate_close=True) if config["remote"] else \
                                   config["data"][wildcards.data]["path"][1]
     output:
-        forward="{project}/gunzip/{data}_R1.fastq",
-        reverse="{project}/gunzip/{data}_R2.fastq"
+        forward=protected("{project}/gunzip/{data}_R1.fastq.gz"),
+        forward_md5=protected("{project}/gunzip/{data}_R1.fastq.gz.md5"),
+        reverse=protected("{project}/gunzip/{data}_R2.fastq.gz"),
+        reverse_md5=protected("{project}/gunzip/{data}_R2.fastq.gz.md5")
+
     params:
         prefix="{data}"
     threads: 8
     run: 
         if config["convert_to_casava1.8"]:
             # BUGFIX: For baseclear data, convert ti casava 1.8 format and add 0 as tag
-            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/1$\",\" 1:N:0:0\") substr($0,2) : $0}}' > {output.forward}")
-            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/2$\",\" 2:N:0:0\") substr($0,2) : $0}}' > {output.reverse}")
+            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/1$\",\" 1:N:0:0\") substr($0,2) : $0}}' | gzip -c > {output.forward}")
+            shell("md5sum {output.forward} > {output.forward_md5}")
+            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/2$\",\" 2:N:0:0\") substr($0,2) : $0}}' | gzip -c > {output.reverse}")
+            shell("md5sum {output.reverse} > {output.reverse_md5}")
         else:
-            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
-            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
+            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' | gzip -c > {output.forward}")
+            shell("md5sum {output.forward} > {output.forward_md5}")
+            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' | gzip -c > {output.reverse}")
+            shell("md5sum {output.reverse} > {output.reverse_md5}")
 
 rule filter_contaminants:
      input:
-        forward="{project}/gunzip/{data}_R1.fastq",
-        reverse="{project}/gunzip/{data}_R2.fastq"
+        forward="{project}/gunzip/{data}_R1.fastq.gz",
+        reverse="{project}/gunzip/{data}_R2.fastq.gz"
      output:
         forward="{project}/filter/{data}_R1.fastq",
         reverse="{project}/filter/{data}_R2.fastq",
