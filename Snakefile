@@ -382,9 +382,10 @@ arb_pt_server -build -DSSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
         input:
             fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
             arb="SSURef_NR99_128_SILVA_07_09_16_opt.arb",
-            index="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb.pt",
-            "SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARM",
-            "SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARF"
+            index="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb",
+            pt="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb.pt",
+            arm="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARM",
+            arf="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARF"
         output:
             #align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
             #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
