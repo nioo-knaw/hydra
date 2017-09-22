@@ -23,34 +23,41 @@ rule final:
 from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
 FTP = FTPRemoteProvider()
 
-rule unpack_and_rename:
+rule rename:
     input:
       forward = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][0], keep_local=True, immediate_close=True) if config["remote"] else \
                                   config["data"][wildcards.data]["path"][0],
       reverse = lambda wildcards: FTP.remote(config["data"][wildcards.data]["path"][1], keep_local=True, immediate_close=True) if config["remote"] else \
                                   config["data"][wildcards.data]["path"][1]
     output:
-        forward="{project}/gunzip/{data}_R1.fastq",
-        reverse="{project}/gunzip/{data}_R2.fastq"
+        forward=protected("{project}/gunzip/{data}_R1.fastq.gz"),
+        forward_md5=protected("{project}/gunzip/{data}_R1.fastq.gz.md5"),
+        reverse=protected("{project}/gunzip/{data}_R2.fastq.gz"),
+        reverse_md5=protected("{project}/gunzip/{data}_R2.fastq.gz.md5")
+
     params:
         prefix="{data}"
     threads: 8
     run: 
         if config["convert_to_casava1.8"]:
             # BUGFIX: For baseclear data, convert ti casava 1.8 format and add 0 as tag
-            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/1$\",\" 1:N:0:0\") substr($0,2) : $0}}' > {output.forward}")
-            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/2$\",\" 2:N:0:0\") substr($0,2) : $0}}' > {output.reverse}")
+            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/1$\",\" 1:N:0:0\") substr($0,2) : $0}}' | gzip -c > {output.forward}")
+            shell("md5sum {output.forward} > {output.forward_md5}")
+            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" gsub(\"/2$\",\" 2:N:0:0\") substr($0,2) : $0}}' | gzip -c > {output.reverse}")
+            shell("md5sum {output.reverse} > {output.reverse_md5}")
         else:
-            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.forward}")
-            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' > {output.reverse}")
+            shell("zcat {input.forward} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' | gzip -c > {output.forward}")
+            shell("md5sum {output.forward} > {output.forward_md5}")
+            shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' | gzip -c > {output.reverse}")
+            shell("md5sum {output.reverse} > {output.reverse_md5}")
 
 rule filter_contaminants:
      input:
-        forward="{project}/gunzip/{data}_R1.fastq",
-        reverse="{project}/gunzip/{data}_R2.fastq"
+        forward="{project}/gunzip/{data}_R1.fastq.gz",
+        reverse="{project}/gunzip/{data}_R2.fastq.gz"
      output:
-        forward="{project}/filter/{data}_R1.fastq",
-        reverse="{project}/filter/{data}_R2.fastq",
+        forward=temporary("{project}/filter/{data}_R1.fastq"),
+        reverse=temporary("{project}/filter/{data}_R2.fastq"),
         stats="{project}/stats/{data}_contaminants_stats.txt"
      params:
          phix="refs/phix.fasta",
@@ -132,7 +139,7 @@ if config['mergepairs'] == 'none':
             forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
                     "{project}/filter/{data}_R1.fastq",
         output:
-            fasta = "{project}/mergepairs/{data}.fasta"
+            fasta = temporary("{project}/mergepairs/{data}.fasta")
         conda: "envs/barcode.yaml"
         shell: "fastq_to_fasta < {input} > {output}"
 
@@ -145,7 +152,7 @@ if config['mergepairs'] == 'pandaseq':
             reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
                     "{project}/filter/{data}_R2.fastq",
         output:
-            fasta = "{project}/mergepairs/{data}.fasta"
+            fasta = temporary("{project}/mergepairs/{data}.fasta")
         params:
             overlap = config['pandaseq_overlap'],
             quality = config['pandaseq_quality'],
@@ -198,7 +205,7 @@ if config['mergepairs'] == 'vsearch':
             reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
                     "{project}/filter/{data}_R2.fastq",
         output:
-            fasta = "{project}/mergepairs/{data}.fasta"
+            fasta = temporary("{project}/mergepairs/{data}.fasta")
         threads: 1
         conda: "envs/vsearch.yaml"
         shell: "vsearch --threads {threads} --fastq_mergepairs {input.forward} --reverse {input.reverse} --fastq_allowmergestagger --fastq_minmergelen 200 --fastaout {output}"
@@ -208,7 +215,7 @@ if config['its'] == True:
             input:
                     fasta="{project}/mergepairs/{data}.fasta"
             output:
-                    fasta="{project}/itsx/{data}.ITS2.fasta"
+                    fasta=temporary("{project}/itsx/{data}.ITS2.fasta")
             params:
                     basename="{project}/itsx/{data}",
                     dir="{project}/itsx"
@@ -225,7 +232,7 @@ rule mergefiles:
         fasta = expand(PROJECT + "itsx/{data}.ITS2.fasta", data=config["data"]) if config['its'] \
                 else expand(PROJECT + "mergepairs/{data}.fasta", data=config["data"]),
     output: 
-        fasta="{project}/mergefiles/{project}.fasta"
+        fasta=temporary("{project}/mergefiles/{project}.fasta")
     params:
         samples=config["data"]
     shell: """cat {input}  > {output}"""
@@ -350,7 +357,7 @@ rule biom_otu:
 #
 if config["classification"] == "sina":
     rule download_silva_arb:
-        output: "SSURef_NR99_128_SILVA_07_09_16_opt.arb"
+        output: temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb")
         shell: """
 RELEASE=128
 URL="https://www.arb-silva.de/fileadmin/silva_databases/release_${{RELEASE}}/ARB_files"
@@ -361,22 +368,41 @@ FILE="SSURef_NR99_${{RELEASE}}_SILVA_07_09_16_opt.arb.gz"
 wget -c ${{URL}}/${{FILE}}{{,.md5}} && md5sum -c ${{FILE}}.md5
 gunzip ${{FILE}}
 """
+    rule create_index_sina:
+        input:
+            "SSURef_NR99_128_SILVA_07_09_16_opt.arb"
+        output:
+            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb"),
+            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb.pt"),
+            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARM"),
+            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARF")
+
+        conda: "envs/sina.yaml"
+        shell: """
+cp SSURef_NR99_128_SILVA_07_09_16_opt.arb SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
+arb_pt_server -build_clean -DSSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
+arb_pt_server -build -DSSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
+"""
+
 
     rule sina:
         input:
             fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
-            arb="SSURef_NR99_128_SILVA_07_09_16_opt.arb"
+            arb="SSURef_NR99_128_SILVA_07_09_16_opt.arb",
+            index="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb",
+            pt="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb.pt",
+            arm="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARM",
+            arf="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARF"
         output:
             #align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
             #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
             log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log",
             align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align",
-        log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
         priority: -1
         threads: 24
         # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
         conda: "envs/sina.yaml"
-        shell: "cat {input.fasta} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {input.arb} --overhang remove --turn all --search --search-db {input.arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv || true"
+        shell: "cat {input.fasta} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {output.log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {input.arb} --overhang remove --turn all --search --search-db {input.arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv || true"
 
     rule sina_get_taxonomy:
         input:
