@@ -56,8 +56,8 @@ rule filter_contaminants:
         forward="{project}/gunzip/{data}_R1.fastq.gz",
         reverse="{project}/gunzip/{data}_R2.fastq.gz"
      output:
-        forward="{project}/filter/{data}_R1.fastq",
-        reverse="{project}/filter/{data}_R2.fastq",
+        forward=temporary("{project}/filter/{data}_R1.fastq"),
+        reverse=temporary("{project}/filter/{data}_R2.fastq"),
         stats="{project}/stats/{data}_contaminants_stats.txt"
      params:
          phix="refs/phix.fasta",
@@ -139,7 +139,7 @@ if config['mergepairs'] == 'none':
             forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
                     "{project}/filter/{data}_R1.fastq",
         output:
-            fasta = "{project}/mergepairs/{data}.fasta"
+            fasta = temporary("{project}/mergepairs/{data}.fasta")
         conda: "envs/barcode.yaml"
         shell: "fastq_to_fasta < {input} > {output}"
 
@@ -152,7 +152,7 @@ if config['mergepairs'] == 'pandaseq':
             reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
                     "{project}/filter/{data}_R2.fastq",
         output:
-            fasta = "{project}/mergepairs/{data}.fasta"
+            fasta = temporary("{project}/mergepairs/{data}.fasta")
         params:
             overlap = config['pandaseq_overlap'],
             quality = config['pandaseq_quality'],
@@ -205,7 +205,7 @@ if config['mergepairs'] == 'vsearch':
             reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
                     "{project}/filter/{data}_R2.fastq",
         output:
-            fasta = "{project}/mergepairs/{data}.fasta"
+            fasta = temporary("{project}/mergepairs/{data}.fasta")
         threads: 1
         conda: "envs/vsearch.yaml"
         shell: "vsearch --threads {threads} --fastq_mergepairs {input.forward} --reverse {input.reverse} --fastq_allowmergestagger --fastq_minmergelen 200 --fastaout {output}"
@@ -215,7 +215,7 @@ if config['its'] == True:
             input:
                     fasta="{project}/mergepairs/{data}.fasta"
             output:
-                    fasta="{project}/itsx/{data}.ITS2.fasta"
+                    fasta=temporary("{project}/itsx/{data}.ITS2.fasta")
             params:
                     basename="{project}/itsx/{data}",
                     dir="{project}/itsx"
@@ -232,7 +232,7 @@ rule mergefiles:
         fasta = expand(PROJECT + "itsx/{data}.ITS2.fasta", data=config["data"]) if config['its'] \
                 else expand(PROJECT + "mergepairs/{data}.fasta", data=config["data"]),
     output: 
-        fasta="{project}/mergefiles/{project}.fasta"
+        fasta=temporary("{project}/mergefiles/{project}.fasta")
     params:
         samples=config["data"]
     shell: """cat {input}  > {output}"""
