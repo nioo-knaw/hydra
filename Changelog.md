@@ -1,7 +1,8 @@
-### 1.3.5 (unreleased)
+### 1.3.5
 - Add LCA executable for filtering Blastn results
 - Add blast classification description to the report
 - Make more ouput files temporary
+- Fix issue with silva index files
 - Fix sina in report
 
 ## 1.3.4
