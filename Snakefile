@@ -198,7 +198,7 @@ rule readstat_all:
     shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
 
 if config['mergepairs'] == 'vsearch':
-    rule mergepairs:
+    rule vsearch_merge:
         input:
             forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
                     "{project}/filter/{data}_R1.fastq",
