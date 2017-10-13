@@ -281,9 +281,9 @@ if config['clustering'] == "usearch_smallmem":
 # Swarm
 #
 if config['clustering'] == "swarm":
-
+    
     # Swarm
-    rule swarm:
+    rule swarm_old:
         input: 
             "{project}/{prog}/{ds}.sorted.minsize{minsize}.fasta"
         output:
@@ -301,6 +301,134 @@ if config['clustering'] == "swarm":
         output:
             seeds="{project}/{prog}/clst/{ds}.minsize{minsize}.swarm.fasta"
         shell: "SEEDS=$(mktemp); cut -d ' ' -f 1 {input.swarms} | sed -e 's/^/>/' > '${{SEEDS}}'; grep -A 1 -F -f '${{SEEDS}}' {input.amplicons} | sed -e '/^--$/d' > {output.seeds}"
+
+    rule swarm_mergepairs:
+        input:
+            forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R1.fastq",
+            reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
+                    "{project}/filter/{data}_R2.fastq",
+        output:
+            "{project}/swarm/mergepairs/{data}.fastq"       
+        params:
+             encoding = "33"
+        log: "{project}/swarm/mergepairs.log"
+        threads: 16
+        shell: "/data/tools/vsearch/1.11.1/bin/vsearch --threads {threads} --fastq_mergepairs {input.forward} --reverse {input.reverse} --fastq_ascii {params.encoding} --fastqout {output} --fastq_allowmergestagger --quiet 2>> {log}"
+
+    # Discard erroneous sequences and add expected error rates
+    rule swarm_fastq_filter:
+        input:
+            "{project}/swarm/mergepairs/{data}.fastq"
+        output:
+            "{project}/swarm/filter/{data}.fastq" 
+        log: "{project}/swarm/fastqfilter.log"
+        shell: "/data/tools/vsearch/1.11.1/bin/vsearch --quiet --fastq_filter {input} --fastq_maxns 0 --relabel_sha1 --eeout --fastqout {output} 2>> {log}"
+
+    # extract sha1, expected error rates and read length
+    rule swarm_qual:
+        input:
+            expand(PROJECT + "swarm/filter/{data}.fastq", data=config["data"]),
+        output:
+            "{project}/swarm/{project}.qual"
+        shell: """sed 'n;n;N;d' {input} | awk 'BEGIN {{FS = "[;=]"}} {{if (/^@/) {{printf "%s\t%s\t", $1, $3}} else {{print length($1)}}}}' | tr -d "@" | sort -k3,3n -k1,1d -k2,2n  | uniq --check-chars=40 > {output}"""
+
+    # Convert fastq to fasta (discard sequences containing Ns)
+    rule swarm_fastq_filter2:
+        input:
+            "{project}/swarm/filter/{data}.fastq"  
+        output:
+            "{project}/swarm/filter/{data}.fasta" 
+        log: "{project}/swarm/fastqfilter2.log"
+        shell: "/data/tools/vsearch/1.11.1/bin/vsearch --quiet --fastq_filter {input} --fastq_maxns 0 --fastaout {output} 2>> {log}"
+
+    # Dereplicate at the study level (vsearch) 
+    rule swarm_derep_sample:
+        input:
+            "{project}/swarm/filter/{data}.fasta"
+        output:
+            "{project}/swarm/per_sample/{data}.fasta"
+        shell: "/data/tools/vsearch/1.11.1/bin/vsearch --derep_fulllength {input} --sizeout --relabel_sha1 --fasta_width 0 --output {output}"
+
+    rule swarm_pool:
+        input:
+            fasta = expand(PROJECT + "swarm/per_sample/{data}.fasta", data=config["data"]),
+        output: 
+            fasta="{project}/swarm/pool/{project}.fasta"
+        params:
+            samples=config["data"]
+        shell: """cat {input}  > {output}"""
+
+    # Dereplicate pool
+    # Combine abundance counts of per sample dereplication with sizein 
+    rule swarm_derep:
+        input:
+            "{project}/swarm/pool/{project}.fasta"
+        output:
+            "{project}/swarm/derep/{project}.fasta"
+        shell: "/data/tools/vsearch/1.11.1/bin/vsearch --derep_fulllength {input} --sizein --sizeout --fasta_width 0 --output {output}"
+
+    rule swarm:
+        input: 
+            "{project}/swarm/derep/{project}.fasta"
+        output:
+            swarms="{project}/swarm/{project}.swarm_d{d}.swarms",
+            struct="{project}/swarm/{project}.swarm_d{d}.struct",
+            stats="{project}/swarm/{project}.swarm_d{d}.stats",
+            rep="{project}/swarm/{project}.swarm_d{d}.rep.fasta",
+        params:
+            d="{d}", 
+        threads: 16
+        # TODO: add f to filename
+        shell: "/data/tools/swarm/2.1.8/swarm -d {params.d} -f -t {threads} -z -i {output.struct} -s {output.stats} -w {output.rep} -o {output.swarms} < {input}"
+
+    rule swarm_rep_sort:
+        input:
+            "{project}/swarm/{project}.swarm_d{d}.rep.fasta"
+        output:
+            "{project}/swarm/{project}.swarm_d{d}.rep.sort.fasta"
+        shell: "/data/tools/vsearch/1.11.1/bin/vsearch --fasta_width 0 --sortbysize {input} --output {output}"
+
+    rule swarm_uchime:
+        input:
+            "{project}/swarm/{project}.swarm_d{d}.rep.sort.fasta"
+        output:
+            "{project}/swarm/{project}.swarm_d{d}.rep.sort.uchime"
+        shell: "/data/tools/vsearch/1.11.1/bin/vsearch --uchime_denovo {input} --uchimeout {output}"
+
+    # Add params!
+    # If ITSx is not used id needs to be lower!
+    rule swarm_stampa:
+        input:
+            "{project}/swarm/{project}.swarm_d{d}.rep.sort.fasta"
+        output:
+            swarm="{project}/swarm/{project}.swarm_d{d}.rep.sort.swarm.fasta",
+            hits="{project}/swarm/stampa/hits.swarm_d{d}_usearch_global",
+            results="{project}/swarm/stampa/results.swarm_d{d}_usearch_global"
+        params:
+            stampadir="{project}/swarm/stampa/"
+        run: 
+            import os
+            pwd = os.getcwd()
+            stampadir = pwd + "/" + params.stampadir
+            # Convert vsearch style to swarm style
+            shell("sed -e '/^>/ s/;size=/_/' -e '/^>/ s/;$//' {input} > {output.swarm}")
+            shell("/data/tools/vsearch/1.11.1/bin/vsearch --usearch_global {output.swarm}    --threads 16     --dbmask none     --qmask none     --rowlen 0     --notrunclabels     --userfields query+id1+target     --maxaccepts 0     --maxrejects 32  --top_hits_only  --output_no_hits     --db /data/db/unite/itsx.ITS2.stampa.fasta     --id 0.5     --iddef 1     --userout {output.hits}")
+            shell("python2.7 stampa_merge.py {stampadir}")
+
+    rule swarm_otu_table:
+        input:
+            rep="{project}/swarm/{project}.swarm_d{d}.rep.sort.fasta",
+            stats="{project}/swarm/{project}.swarm_d{d}.stats",
+            swarms="{project}/swarm/{project}.swarm_d{d}.swarms",
+            uchime="{project}/swarm/{project}.swarm_d{d}.rep.sort.uchime",
+            quality="{project}/swarm/{project}.qual",
+            taxonomy="{project}/swarm/stampa/results.swarm_d{d}_usearch_global",
+            fasta = expand(PROJECT + "swarm/per_sample/{data}.fasta", data=config["data"]),
+        output:
+            "{project}/swarm/{project}.d{d}.OTU.table"
+        shell: "python2.7 /data/tools/swarm/2.1.8/OTU_contingency_table.py {input.rep} {input.stats} {input.swarms} {input.uchime} {input.quality} {input.taxonomy} {input.fasta} > {output}"
+
 
 #
 # Chimera checking
