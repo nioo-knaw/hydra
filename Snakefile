@@ -17,7 +17,8 @@ rule final:
     input: expand("{project}/stats/contaminants.txt \
                    {project}/{prog}/clst/{ds}.minsize{minsize}.{clmethod}.fasta \
                    {project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom \
-                   {project}/report/report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=config['minsize'],clmethod=config['clustering'])
+                   {project}/report/report.html".split(),data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=config['minsize'],clmethod=config['clustering']),
+           expand("{project}/swarm/{project}.d{d}.OTU.table",data=config["data"],project=config['project'],prog=["vsearch"],ds=config['project'],minsize=config['minsize'],clmethod=config['clustering'],d=1)
 
 
 from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
