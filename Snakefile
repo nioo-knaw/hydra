@@ -527,7 +527,7 @@ cat "${{INPUT}}" | sed '/^>/ ! s/U/T/g' | \
     rule stampa:
         input:
             fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
-            db = "SILVA_128_SSURef_tax_silva_trimmed.fasta" if config["reference_db"] == "silva" else "UNITE-7.2-28.06.2017.fasta" if config["reference_db"] == "unite" else None,
+            db = "SILVA_128_SSURef_tax_silva_trimmed.fasta" if config["reference_db"] == "silva" else "UNITE_public_28.06.2017.fasta" if config["reference_db"] == "unite" else None,
         output:
             swarm="{project}/{prog}/stampa/{ds}.minsize{minsize}.{clmethod}.fasta",
             hits="{project}/{prog}/stampa/hits.{ds}.minsize{minsize}.{clmethod}_usearch_global",
