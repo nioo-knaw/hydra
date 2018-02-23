@@ -445,9 +445,12 @@ arb_pt_server -build -DSSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
             biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
             otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
         conda: "envs/biom-format.yaml"
-        shell: """cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy} && \
-                  biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} --output-as-json && \
-                  biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
+        run: """if config["use_full_lineage"]:
+                      cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy} && \
+                  else:
+                      cat {input.taxonomy} > cat {ouptut.taxonomy}
+                  shell(biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} --output-as-json && \)
+                  shell(biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable})
                """
 
 if config["classification"] == "stampa":
