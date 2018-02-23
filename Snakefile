@@ -358,7 +358,7 @@ rule biom_otu:
 #
 if config["classification"] == "sina":
     rule download_silva_arb:
-        output: temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb")
+        output: temporary("SSURef_NR99_132_SILVA_13_12_17_opt.arb")
         shell: """
 RELEASE=132
 URL="https://www.arb-silva.de/fileadmin/silva_databases/release_${{RELEASE}}/ARB_files"
