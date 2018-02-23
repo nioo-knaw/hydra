@@ -435,22 +435,30 @@ arb_pt_server -build -DSSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
         conda: "envs/qiime.yaml"
         shell: "make_phylogeny.py -i {input.align} -t fasttree -o {output.tree}"
 
-    rule biom_tax_sina:
+    rule sina_convert_tax:
         input:
             taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy.txt",
+        output:
+            taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.qiimeformat.taxonomy",
+        run:
+            if config["use_full_lineage"]:
+                shell("""awk -F"[;\t]" '{{printf $1"\t"; for(i=2;i<NF;i++){{printf i-1"__%s;", $i}}; printf "\\n"}}' {input.taxonomy} > {output.taxonomy}""")
+            else:
+                shell("""cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy}""")
+
+
+    rule biom_tax_sina:
+        input:
+            taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.qiimeformat.taxonomy",
             biom="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.biom",
             meta=config["metadata"]
         output:
-            taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.qiimeformat.taxonomy",
             biom=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom"),
             otutable=protected("{project}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt")
         conda: "envs/biom-format.yaml"
-        run: """if config["use_full_lineage"]:
-                      cat {input.taxonomy} | awk -F"[;\t]" 'BEGIN{{print "OTUs,Domain,Phylum,Class,Order,Family,Genus"}}{{print $1"\\tk__"$2"; p__"$3"; c__"$4"; o__"$5"; f__"$6"; g__"$7"; s__"$8}}' > {output.taxonomy} && \
-                  else:
-                      cat {input.taxonomy} > cat {ouptut.taxonomy}
-                  shell(biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {output.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} --output-as-json && \)
-                  shell(biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable})
+        shell: """
+               biom add-metadata -i {input.biom} -o {output.biom} --observation-metadata-fp {input.taxonomy} --observation-header OTUID,taxonomy --sc-separated taxonomy --float-fields confidence --sample-metadata-fp {input.meta} --output-as-json && \
+               biom convert --to-tsv --header-key=taxonomy -i {output.biom} -o {output.otutable}
                """
 
 if config["classification"] == "stampa":
