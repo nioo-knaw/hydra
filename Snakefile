@@ -360,10 +360,10 @@ if config["classification"] == "sina":
     rule download_silva_arb:
         output: temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb")
         shell: """
-RELEASE=128
+RELEASE=132
 URL="https://www.arb-silva.de/fileadmin/silva_databases/release_${{RELEASE}}/ARB_files"
 
-FILE="SSURef_NR99_${{RELEASE}}_SILVA_07_09_16_opt.arb.gz"
+FILE="SSURef_NR99_${{RELEASE}}_SILVA_13_12_17_opt.arb.gz"
 
 # Download and check
 wget -c ${{URL}}/${{FILE}}{{,.md5}} && md5sum -c ${{FILE}}.md5
@@ -371,29 +371,29 @@ gunzip ${{FILE}}
 """
     rule create_index_sina:
         input:
-            "SSURef_NR99_128_SILVA_07_09_16_opt.arb"
+            "SSURef_NR99_132_SILVA_13_12_17_opt.arb"
         output:
-            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb"),
-            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb.pt"),
-            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARM"),
-            temporary("SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARF")
+            temporary("SSURef_NR99_132_SILVA_13_12_17_opt.arb.index.arb"),
+            temporary("SSURef_NR99_132_SILVA_13_12_17_opt.arb.index.arb.pt"),
+            temporary("SSURef_NR99_132_SILVA_13_12_17_opt.arb.index.ARM"),
+            temporary("SSURef_NR99_132_SILVA_13_12_17_opt.arb.index.ARF")
 
         conda: "envs/sina.yaml"
         shell: """
-cp SSURef_NR99_128_SILVA_07_09_16_opt.arb SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
-arb_pt_server -build_clean -DSSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
-arb_pt_server -build -DSSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb
+cp SSURef_NR99_132_SILVA_12_12_17_opt.arb SSURef_NR99_132_SILVA_13_12_17_opt.arb.index.arb
+arb_pt_server -build_clean -DSSURef_NR99_132_SILVA_13_12_17_opt.arb.index.arb
+arb_pt_server -build -DSSURef_NR99_132_SILVA_13_12_17_opt.arb.index.arb
 """
 
 
     rule sina:
         input:
             fasta="{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta",
-            arb="SSURef_NR99_128_SILVA_07_09_16_opt.arb",
-            index="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb",
-            pt="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.arb.pt",
-            arm="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARM",
-            arf="SSURef_NR99_128_SILVA_07_09_16_opt.arb.index.ARF"
+            arb="SSURef_NR99_132_SILVA_13_12_17_opt.arb",
+            index="SSURef_NR99_132_SILVA_13_12_17_opt.arb.index.arb",
+            pt="SSURef_NR99_132_SILVA_13_12_17_opt.arb.index.arb.pt",
+            arm="SSURef_NR99_132_SILVA_13_12_17_opt.arb.index.ARM",
+            arf="SSURef_NR99_132_SILVA_13_12_17_opt.arb.index.ARF"
         output:
             #align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
             #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
