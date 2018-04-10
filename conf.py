@@ -158,6 +158,7 @@ def make_config(project,config,path,remote, rename, forward_primer, reverse_prim
     conf["its"] = False 
     conf["clustering"] =  clustering
     conf["classification"] = classification
+    conf["use_full_lineage"] = False
     conf["rdp_confidence_cutoff"] = 0.80
     conf["reference_db"] = reference_db
 
