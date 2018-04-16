@@ -11,4 +11,3 @@ dependencies:
   - bioconductor-phyloseq
   - r-ampvis
   - pandoc-fignos
-  - r-ape=5.0
