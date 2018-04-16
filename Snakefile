@@ -441,7 +441,7 @@ arb_pt_server -build -DSILVA_132_SSURef_NR99_13_12_17_opt.arb.index.arb
         output:
             taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.qiimeformat.taxonomy",
         run:
-            if "use_full_lineage" in config
+            if "use_full_lineage" in config:
               elif config["use_full_lineage"]:
                 shell("""awk -F"[;\t]" '{{printf $1"\t"; for(i=2;i<NF;i++){{printf i-1"__%s;", $i}}; printf "\\n"}}' {input.taxonomy} > {output.taxonomy}""")
             else:
