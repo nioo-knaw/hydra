@@ -148,6 +148,7 @@ def make_config(project,config,path,remote, rename, forward_primer, reverse_prim
     conf["reverse_primer"] = reverse_primer
 
     conf["mergepairs"] = mergepairs
+    conf["vsearch_minmergelen"] = "200"
     conf["metadata"] = "metadata.txt"
     if remote != None:
         conf["remote"] = True

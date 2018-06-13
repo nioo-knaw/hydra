@@ -206,10 +206,12 @@ if config['mergepairs'] == 'vsearch':
                     "{project}/filter/{data}_R2.fastq",
         output:
             fasta = temporary("{project}/mergepairs/{data}.fasta")
+        params:
+            minmergelen=config['vsearch_minmergelen']
         log: "{project}/mergepairs/{data}.log"
         threads: 1
         conda: "envs/vsearch.yaml"
-        shell: "vsearch --threads {threads} --fastq_mergepairs {input.forward} --reverse {input.reverse} --fastq_allowmergestagger --fastq_minmergelen 200 --fastaout {output} 2>> {log}"
+        shell: "vsearch --threads {threads} --fastq_mergepairs {input.forward} --reverse {input.reverse} --fastq_allowmergestagger --fastq_minmergelen {params.minmergelen} --fastaout {output} 2>> {log}"
 
 if config['its'] == True:
     rule extract_its:
