@@ -128,7 +128,7 @@ rule fastqc:
     params:
         dir="{project}/fastqc_raw",
         adapters = config["adapters_fasta"]
-    log: "fastqc_raw.log"
+    log: "{project}/fastqc_raw/{data}.log"
     threads: 2
     conda: "envs/fastqc.yaml"
     shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.forward} > {params.dir}/{log} && fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.reverse} > {params.dir}/{log}"
@@ -173,7 +173,7 @@ rule fastqc_pandaseq:
     params:
         dir="{project}/fastqc_pandaseq",
         adapters = config["adapters_fasta"]
-    log: "fastqc.log"
+    log: "{project}/mergepairs/fastqc_{data}.log"
     threads: 8
     conda: "envs/fastqc.yaml"
     shell: "fastqc -q -t {threads} --contaminants {params.adapters} --outdir {params.dir} {input.fastq} > {params.dir}/{log}"
