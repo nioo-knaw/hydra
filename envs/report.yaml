@@ -5,8 +5,8 @@ channels:
   - ericmjl
 dependencies:
   - rpy2
-  - r-rmarkdown=1.6
-  - pandoc==1.17.2
+  - r-rmarkdown
+  - pandoc
   - r-plotly
   - bioconductor-phyloseq
   - r-ampvis
