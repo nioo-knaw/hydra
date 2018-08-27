@@ -99,7 +99,7 @@ def create_metadata_template(outfile, samples):
 @click.option('--rename', required=False, help='provide a file for renaming samples')
 
 @click.option('--forward_primer', prompt="Which forward primer did you use?", required=True, default="CCTACGGGNGGCWGCAG", help="Which forward primer did you use?")
-@click.option('--reverse_primer', prompt="Which reverse primer did you use? (enter in reverse complement)", required=True, default="GGATTAGATACCCBDGTAGTC", help="Which reverse primer did you use? (enter in reverse complement)")
+@click.option('--reverse_primer', prompt="Which reverse primer did you use?", required=True, default="GACTACHVGGGTATCTAATCC", help="Which reverse primer did you use?")
 @click.option('--mergepairs', prompt="Choose wich method to use for stitching paired reads (vsearch, pandaseq)", required=True, default="vsearch", type=click.Choice(['pandaseq', 'vsearch', 'none']), help="Choose wich method to use for stitching paired reads")
 @click.option('--classification', prompt="Choose wich classification option you want to use (sina, stampa, rdp, blast)", required=True, type=click.Choice(['sina', 'stampa', 'rdp', 'blast']), help="Choose wich classification option you want to use")
 @click.option('--reference_db', prompt="Choose wich reference database to use (silva, unite)", required=True, type=click.Choice(['silva', 'unite']), help="Choose wich reference database to use")

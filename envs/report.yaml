@@ -6,7 +6,7 @@ channels:
 dependencies:
   - rpy2
   - r-rmarkdown
-  - pandoc
+  - pandoc==1.19.2
   - r-plotly
   - bioconductor-phyloseq
   - r-ampvis
