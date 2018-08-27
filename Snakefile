@@ -75,11 +75,44 @@ rule contaminants_stats:
         "{project}/stats/contaminants.txt"
     shell: "grep '#' -v {input} | tr ':' '\t' > {output}"
 
+rule filter_primers:
+    input:
+        forward="{project}/filter/{data}_R1.fastq",
+        reverse="{project}/filter/{data}_R2.fastq"
+    output:
+        forward="{project}/primers/{data}_R1.fastq",
+        reverse="{project}/primers/{data}_R2.fastq"
+    params:
+        forward_primer=config["forward_primer"],
+        reverse_primer=config["reverse_primer"]
+    log: "{project}/primers/cutadapt.log"
+    conda: "envs/cutadapt.yaml"
+    shell: """
+PRIMER_F={params.forward_primer}
+PRIMER_R={params.reverse_primer}
+MIN_LENGTH=32
+MIN_F=$(( ${{#PRIMER_F}} * 2 / 3 ))
+MIN_R=$(( ${{#PRIMER_R}} * 2 / 3 ))
+CUTADAPT="cutadapt --minimum-length ${{MIN_LENGTH}}"
+
+# Trim forward & reverse primers, format
+cat {input.forward} | \
+     ${{CUTADAPT}} -g "${{PRIMER_F}}" -O "${{MIN_F}}" - 2> {log} | \
+     ${{CUTADAPT}} -a "${{PRIMER_R}}" -O "${{MIN_F}}" - 2>> {log} | \
+     sed '/^>/ s/;/|/g ; /^>/ s/ /_/g ; /^>/ s/_/ /1' > {output.forward}
+
+cat {input.reverse} | \
+     ${{CUTADAPT}} -g "${{PRIMER_F}}" -O "${{MIN_F}}" - 2> {log} | \
+     ${{CUTADAPT}} -a "${{PRIMER_R}}" -O "${{MIN_F}}" - 2>> {log} | \
+     sed '/^>/ s/;/|/g ; /^>/ s/ /_/g ; /^>/ s/_/ /1' > {output.reverse}
+    """
+
+
 if config["barcode_in_header"]: 
     rule remove_barcodes:
         input:
-            forward="{project}/filter/{data}_R1.fastq",
-            reverse="{project}/filter/{data}_R2.fastq",
+            forward="{project}/primers/{data}_R1.fastq",
+            reverse="{project}/primers/{data}_R2.fastq",
         output:
             barcodes=temp("{project}/barcode/{data}/barcodes.fastq"),
             barcodes_fasta=temp("{project}/barcode/{data}/barcodes.fasta"),
@@ -101,7 +134,7 @@ if config["barcode_in_header"]:
 rule readstat_reverse:
     input:
           "{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
-          "{project}/filter/{data}_R2.fastq",
+          "{project}/primers/{data}_R2.fastq",
     output:
         temporary("{project}/stats/reverse/readstat.{data}.csv")
     log:
@@ -137,7 +170,7 @@ if config['mergepairs'] == 'none':
     rule copy_forward:
         input:
             forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
-                    "{project}/filter/{data}_R1.fastq",
+                    "{project}/primers/{data}_R1.fastq",
         output:
             fasta = temporary("{project}/mergepairs/{data}.fasta")
         conda: "envs/barcode.yaml"
@@ -148,9 +181,9 @@ if config['mergepairs'] == 'pandaseq':
     rule pandaseq:
         input:      
             forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
-                    "{project}/filter/{data}_R1.fastq",
+                    "{project}/primers/{data}_R1.fastq",
             reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
-                    "{project}/filter/{data}_R2.fastq",
+                    "{project}/primers/{data}_R2.fastq",
         output:
             fasta = temporary("{project}/mergepairs/{data}.fasta")
         params:
@@ -201,9 +234,9 @@ if config['mergepairs'] == 'vsearch':
     rule vsearch_merge:
         input:
             forward="{project}/barcode/{data}_R1.fastq" if config["barcode_in_header"] else\
-                    "{project}/filter/{data}_R1.fastq",
+                    "{project}/primers/{data}_R1.fastq",
             reverse="{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
-                    "{project}/filter/{data}_R2.fastq",
+                    "{project}/primers/{data}_R2.fastq",
         output:
             fasta = temporary("{project}/mergepairs/{data}.fasta")
         params:
