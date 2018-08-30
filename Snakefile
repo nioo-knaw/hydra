@@ -61,7 +61,7 @@ rule filter_primers:
     params:
         forward_primer=config["forward_primer"],
         reverse_primer=config["reverse_primer"]
-    log: "{project}/primers/cutadapt.log"
+    log: "{project}/primers/cutadapt_{data}.log"
     conda: "envs/cutadapt.yaml"
     shell: """
 FW_RC=$(python -c "from Bio.Seq import Seq; primer = Seq('{params.forward_primer}'); print(primer.reverse_complement())")
