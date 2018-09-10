@@ -55,20 +55,28 @@ rule readstat_raw:
     input:
           "{project}/gunzip/{data}_R1.fastq.gz",
     output:
-        temporary("{project}/stats/raw/readstat.{data}.csv")
+        readstats =  temporary("{project}/stats/raw/readstat.{data}.csv"),
+        readcount =  temporary("{project}/stats/raw/readcount.{data}.csv")
+    params:
+        sample="{data}"
     log:
         "{project}/stats/raw/readstat.{data}.log"
     conda:
         "envs/khmer.yaml"
     threads: 1
-    shell: "readstats.py {input} --csv -o {output} 2> {log}"
+    shell: """
+      readstats.py {input} --csv -o {output.readstats} 2> {log}
+      printf "%s\t" {params.sample} > {output.readcount}
+      tail -n +2 {output.readstats} | cut -d, -f 2 >> {output.readcount}
+      """
 
 rule readstat_raw_merge:
     input:
-        expand("{project}/stats/raw/readstat.{data}.csv", project=config['project'], data=config["data"])
+        expand("{project}/stats/raw/readcount.{data}.csv", project=config['project'], data=config["data"])
     output:
         protected("{project}/stats/readstat_raw.csv")
-    shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
+    shell: """ echo "#SampleID\traw" > {output}
+               cat {input} >> {output}"""
 
 
 rule filter_primers:
@@ -140,21 +148,28 @@ rule readstat_filter:
     input:
           "{project}/filter/{data}_R1.fastq",
     output:
-        temporary("{project}/stats/filter/readstat.{data}_R1.csv")
+        readstats = temporary("{project}/stats/filter/readstat.{data}_R1.csv"),
+        readcount =  temporary("{project}/stats/filter/readcount.{data}_R1.csv")
+    params:
+        sample="{data}"
     log:
         "{project}/stats/filter/readstat.{data}_R1.log"
     conda:
         "envs/khmer.yaml"
     threads: 1
-    shell: "readstats.py {input} --csv -o {output} 2> {log}"
+    shell: """
+      readstats.py {input} --csv -o {output.readstats} 2> {log}
+      printf "%s\t" {params.sample} > {output.readcount}
+      tail -n +2 {output.readstats} | cut -d, -f 2 >> {output.readcount}
+      """
 
 rule readstat_filter_merge:
     input:
-        expand("{project}/stats/filter/readstat.{data}_R1.csv", project=config['project'], data=config["data"])
+        expand("{project}/stats/filter/readcount.{data}_R1.csv", project=config['project'], data=config["data"])
     output:
         protected("{project}/stats/readstat_filter_R1.csv")
-    shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
-
+    shell: """ echo "#SampleID\tfilter" > {output}
+               cat {input} >> {output}"""
 
 rule readstat_filter_reverse:
     input:
@@ -239,20 +254,29 @@ rule readstat_mergepairs:
     input:
         fasta = "{project}/mergepairs/{data}.fasta"
     output:
-        temporary("{project}/stats/readstat_mergepairs.{data}.csv")
+        readstats = temporary("{project}/stats/mergepairs/readstat_mergepairs.{data}.csv"),
+        readcount =  temporary("{project}/stats/mergepairs/readcount_mergepairs.{data}.csv")
+    params:
+        sample="{data}"
     log:
         "{project}/stats/readstat_mergepairs.{data}.log"
     conda:
         "envs/khmer.yaml"
     threads: 1
-    shell: "readstats.py {input} --csv -o {output} 2> {log}"
+    shell: """
+      readstats.py {input} --csv -o {output.readstats} 2> {log}
+      printf "%s\t" {params.sample} > {output.readcount}
+      tail -n +2 {output.readstats} | cut -d, -f 2 >> {output.readcount}
+      """
 
-rule readstat_all:
+rule readstat_mergepairs_merge:
     input:
-        expand("{project}/stats/readstat_mergepairs.{data}.csv", project=config['project'], data=config["data"])
+        expand("{project}/stats/mergepairs/readcount_mergepairs.{data}.csv", project=config['project'], data=config["data"])
     output:
         protected("{project}/stats/readstat_mergepairs.csv")
-    shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
+    shell: """ echo "#SampleID\tmerged" > {output}
+               cat {input} >> {output}"""
+
 
 if config['mergepairs'] == 'vsearch':
     rule vsearch_merge:
