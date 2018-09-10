@@ -239,9 +239,9 @@ rule readstat_mergepairs:
     input:
         fasta = "{project}/mergepairs/{data}.fasta"
     output:
-        temporary("{project}/stats/readstat.{data}.csv")
+        temporary("{project}/stats/readstat_mergepairs.{data}.csv")
     log:
-        "{project}/stats/readstat.{data}.log"
+        "{project}/stats/readstat_mergepairs.{data}.log"
     conda:
         "envs/khmer.yaml"
     threads: 1
@@ -249,9 +249,9 @@ rule readstat_mergepairs:
 
 rule readstat_all:
     input:
-        expand("{project}/stats/readstat.{data}.csv", project=config['project'], data=config["data"])
+        expand("{project}/stats/readstat_mergepairs.{data}.csv", project=config['project'], data=config["data"])
     output:
-        protected("{project}/stats/readstat.csv")
+        protected("{project}/stats/readstat_mergepairs.csv")
     shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
 
 if config['mergepairs'] == 'vsearch':
@@ -772,7 +772,7 @@ rule report:
     input:
         workflow =  "{project}/report/workflow.svg",
         readstat_raw = "{project}/stats/readstat_raw.csv",       
-        readstat = "{project}/stats/readstat.csv",
+        readstat_mergepairs = "{project}/stats/readstat_mergepairs.csv",
         readstat_filter = "{project}/stats/readstat_filter_R1.csv",
         readstat_reverse = "{project}/stats/readstat_filter_R2.csv",
         biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
