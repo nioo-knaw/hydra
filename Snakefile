@@ -51,6 +51,26 @@ rule rename:
             shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' | gzip -c > {output.reverse}")
             shell("md5sum {output.reverse} > {output.reverse_md5}")
 
+rule readstat_raw:
+    input:
+          "{project}/gunzip/{data}_R1.fastq.gz",
+    output:
+        temporary("{project}/stats/raw/readstat.{data}.csv")
+    log:
+        "{project}/stats/raw/readstat.{data}.log"
+    conda:
+        "envs/khmer.yaml"
+    threads: 1
+    shell: "readstats.py {input} --csv -o {output} 2> {log}"
+
+rule readstat_raw_merge:
+    input:
+        expand("{project}/stats/raw/readstat.{data}.csv", project=config['project'], data=config["data"])
+    output:
+        protected("{project}/stats/readstat_raw.csv")
+    shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
+
+
 rule filter_primers:
     input:
         forward="{project}/gunzip/{data}_R1.fastq.gz",
@@ -751,6 +771,7 @@ rule workflow_graph:
 rule report:
     input:
         workflow =  "{project}/report/workflow.svg",
+        readstat_raw = "{project}/stats/readstat_raw.csv",       
         readstat = "{project}/stats/readstat.csv",
         readstat_filter = "{project}/stats/readstat_filter_R1.csv",
         readstat_reverse = "{project}/stats/readstat_filter_R2.csv",
