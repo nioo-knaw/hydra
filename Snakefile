@@ -116,14 +116,33 @@ if config["barcode_in_header"]:
         shell: """extract_barcodes.py -f {input.forward}  -s{params.sep} -l {params.length} -o {params.outdir} -c barcode_in_label && fastq_to_fasta < {output.barcodes} > {output.barcodes_fasta} && \
                   trimmomatic PE -threads {threads} -phred33 {input.forward} {input.reverse} {output.forward} {output.forward_unpaired} {output.reverse} {output.reverse_unpaired} ILLUMINACLIP:{output.barcodes_fasta}:0:0:{params.threshold} 2> {log}"""
 
-rule readstat_reverse:
+rule readstat_filter:
     input:
-          "{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
+          "{project}/filter/{data}_R1.fastq",
+    output:
+        temporary("{project}/stats/filter/readstat.{data}_R1.csv")
+    log:
+        "{project}/stats/filter/readstat.{data}_R1.log"
+    conda:
+        "envs/khmer.yaml"
+    threads: 1
+    shell: "readstats.py {input} --csv -o {output} 2> {log}"
+
+rule readstat_filter_merge:
+    input:
+        expand("{project}/stats/filter/readstat.{data}_R1.csv", project=config['project'], data=config["data"])
+    output:
+        protected("{project}/stats/readstat_filter_R1.csv")
+    shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
+
+
+rule readstat_filter_reverse:
+    input:
           "{project}/filter/{data}_R2.fastq",
     output:
-        temporary("{project}/stats/reverse/readstat.{data}.csv")
+        temporary("{project}/stats/filter/readstat.{data}_R2.csv")
     log:
-        "{project}/stats/reverse/readstat.{data}.log"
+        "{project}/stats/filter/readstat.{data}_R2.log"
     conda:
         "envs/khmer.yaml"
     threads: 1
@@ -131,9 +150,9 @@ rule readstat_reverse:
 
 rule readstat_reverse_merge:
     input:
-        expand("{project}/stats/reverse/readstat.{data}.csv", project=config['project'], data=config["data"])
+        expand("{project}/stats/filter/readstat.{data}_R2.csv", project=config['project'], data=config["data"])
     output:
-        protected("{project}/stats/readstat_R2.csv")
+        protected("{project}/stats/readstat_filter_R2.csv")
     shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
 
 
@@ -733,7 +752,8 @@ rule report:
     input:
         workflow =  "{project}/report/workflow.svg",
         readstat = "{project}/stats/readstat.csv",
-        readstat_reverse = "{project}/stats/readstat_R2.csv",
+        readstat_filter = "{project}/stats/readstat_filter_R1.csv",
+        readstat_reverse = "{project}/stats/readstat_filter_R2.csv",
         biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
         otutable = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
         otus= expand("{{project}}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
