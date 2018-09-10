@@ -791,6 +791,14 @@ rule workflow_graph:
     conda: "envs/rulegraph.yaml"
     shell: "snakemake --rulegraph | dot -Tsvg > {output}"
 
+rule combine_readcount:
+    input:
+        "{project}/stats/readstat_raw.csv",
+        "{project}/stats/readstat_filter_R1.csv",
+        "{project}/stats/readstat_mergepairs.csv"
+    output:
+        "{project}/stats/readcount.csv"
+    shell: "paste -d '\\t' {input} | cut -f 1,2,4,6 > {output}"
 
 rule report:
     input:
