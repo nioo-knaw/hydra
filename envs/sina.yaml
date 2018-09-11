@@ -1,7 +1,6 @@
 channels:
   - bioconda
   - conda-forge
-  - conda-forge/label/old_feature_broken
 dependencies:
-  - sina ==1.3.1
+  - sina
   - parallel ==20160622
