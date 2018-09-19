@@ -41,56 +41,11 @@ library(knitr)
 kable(snakemake@config$data)
 ```
 
-## Summary
+### Read counts
 
-```{r set_plot_theme,echo=F}
-library(ggplot2)
-plot.theme <- theme(axis.text.x=element_text(size=12,angle=0,colour="black"),
-                    axis.text.y=element_text(size=12,angle=0,colour="black"),
-                    axis.title=element_text(size=18,angle=0,colour="black"),
-                    plot.title=element_text(size=18,angle=0,colour="black"),
-                    text=element_text(margin=margin(1,1,1,1,"mm"),debug=F),
-                    panel.grid.minor=element_line(color="grey95"),
-                    strip.text=element_text(size=16),
-                    panel.border=element_rect(linetype="solid",colour="grey")
-                    )
-```
-
-
-## Plot
-```{r readstat, message=FALSE, warning=FALSE}
-library(plotly)
-readstat = read.csv(snakemake@input$readstat)
-p <- ggplot(readstat, aes(y=readstat$avg_len, x = seq(1, length(readstat$avg_len)))) + geom_point()
-
-ggplotly(p)
-```
-
-## Sequence length reverse reads
-```{r readstat_reverse, message=FALSE, warning=FALSE}
-library(plotly)
-readstat = read.csv(snakemake@input$readstat_reverse)
-p <- ggplot(readstat, aes(y=readstat$avg_len, x = seq(1, length(readstat$avg_len)))) + geom_point()
-
-ggplotly(p)
-```
-
-## phyloseq
-```{r phyloseq, message=FALSE, warning=FALSE}
-library(phyloseq)
-import_biom(snakemake@input$biom)
-```
-
-## ampvis plot
-```{r amvpis, message=FALSE, warning=FALSE}
-library(phyloseq)
-library(ampvis)
-ds <- import_biom(snakemake@input$biom, parseFunction=parse_taxonomy_greengenes)
-dsn <- transform_sample_counts(ds, function(x) x / sum(x) * 100)
-amp_core(data = dsn,
-         plot.type = "frequency",
-         weight = T,
-         scale.seq = 100)
+```{r readstats, message=FALSE, warning=FALSE}
+library(knitr)
+kable(read.delim(snakemake@input$readstat))
 ```
 
 ## Downloads

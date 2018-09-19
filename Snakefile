@@ -4,6 +4,8 @@ import os
 
 #min_version("3.12") # R Markdown reports have been introduced in Snakemake 3.12
 
+report: "report/workflow.rst"
+
 if os.path.isfile("config.yaml"):
     configfile: "config.yaml"
 
@@ -803,10 +805,7 @@ rule combine_readcount:
 rule report:
     input:
         workflow =  "{project}/report/workflow.svg",
-        readstat_raw = "{project}/stats/readstat_raw.csv",       
-        readstat_mergepairs = "{project}/stats/readstat_mergepairs.csv",
-        readstat_filter = "{project}/stats/readstat_filter_R1.csv",
-        readstat_reverse = "{project}/stats/readstat_filter_R2.csv",
+        readstat = "{project}/stats/readcount.csv",
         biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
         otutable = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
         otus= expand("{{project}}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
