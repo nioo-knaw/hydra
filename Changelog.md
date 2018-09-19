@@ -1,3 +1,10 @@
+### 1.3.6
+- Added config options for minimal merge length and full taxonomic levels
+- Count the number of reads at each step
+- Simplify the report and include table with read counts
+- Update Silva to 132
+- Fix conda environments for sina, report, itsx, cutadapt
+
 ### 1.3.5
 - Add LCA executable for filtering Blastn results
 - Add blast classification description to the report
