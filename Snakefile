@@ -4,6 +4,8 @@ import os
 
 #min_version("3.12") # R Markdown reports have been introduced in Snakemake 3.12
 
+report: "report/workflow.rst"
+
 if os.path.isfile("config.yaml"):
     configfile: "config.yaml"
 
@@ -50,6 +52,34 @@ rule rename:
             shell("md5sum {output.forward} > {output.forward_md5}")
             shell("zcat {input.reverse} | awk '{{print (NR%4 == 1) ? \"@{params.prefix}_\" substr($0,2) : $0}}' | gzip -c > {output.reverse}")
             shell("md5sum {output.reverse} > {output.reverse_md5}")
+
+rule readstat_raw:
+    input:
+          "{project}/gunzip/{data}_R1.fastq.gz",
+    output:
+        readstats =  temporary("{project}/stats/raw/readstat.{data}.csv"),
+        readcount =  temporary("{project}/stats/raw/readcount.{data}.csv")
+    params:
+        sample="{data}"
+    log:
+        "{project}/stats/raw/readstat.{data}.log"
+    conda:
+        "envs/khmer.yaml"
+    threads: 1
+    shell: """
+      readstats.py {input} --csv -o {output.readstats} 2> {log}
+      printf "%s\t" {params.sample} > {output.readcount}
+      tail -n +2 {output.readstats} | cut -d, -f 2 >> {output.readcount}
+      """
+
+rule readstat_raw_merge:
+    input:
+        expand("{project}/stats/raw/readcount.{data}.csv", project=config['project'], data=config["data"])
+    output:
+        protected("{project}/stats/readstat_raw.csv")
+    shell: """ echo "#SampleID\traw" > {output}
+               cat {input} >> {output}"""
+
 
 rule filter_primers:
     input:
@@ -116,14 +146,40 @@ if config["barcode_in_header"]:
         shell: """extract_barcodes.py -f {input.forward}  -s{params.sep} -l {params.length} -o {params.outdir} -c barcode_in_label && fastq_to_fasta < {output.barcodes} > {output.barcodes_fasta} && \
                   trimmomatic PE -threads {threads} -phred33 {input.forward} {input.reverse} {output.forward} {output.forward_unpaired} {output.reverse} {output.reverse_unpaired} ILLUMINACLIP:{output.barcodes_fasta}:0:0:{params.threshold} 2> {log}"""
 
-rule readstat_reverse:
+rule readstat_filter:
     input:
-          "{project}/barcode/{data}_R2.fastq" if config["barcode_in_header"] else\
+          "{project}/filter/{data}_R1.fastq",
+    output:
+        readstats = temporary("{project}/stats/filter/readstat.{data}_R1.csv"),
+        readcount =  temporary("{project}/stats/filter/readcount.{data}_R1.csv")
+    params:
+        sample="{data}"
+    log:
+        "{project}/stats/filter/readstat.{data}_R1.log"
+    conda:
+        "envs/khmer.yaml"
+    threads: 1
+    shell: """
+      readstats.py {input} --csv -o {output.readstats} 2> {log}
+      printf "%s\t" {params.sample} > {output.readcount}
+      tail -n +2 {output.readstats} | cut -d, -f 2 >> {output.readcount}
+      """
+
+rule readstat_filter_merge:
+    input:
+        expand("{project}/stats/filter/readcount.{data}_R1.csv", project=config['project'], data=config["data"])
+    output:
+        protected("{project}/stats/readstat_filter_R1.csv")
+    shell: """ echo "#SampleID\tfilter" > {output}
+               cat {input} >> {output}"""
+
+rule readstat_filter_reverse:
+    input:
           "{project}/filter/{data}_R2.fastq",
     output:
-        temporary("{project}/stats/reverse/readstat.{data}.csv")
+        temporary("{project}/stats/filter/readstat.{data}_R2.csv")
     log:
-        "{project}/stats/reverse/readstat.{data}.log"
+        "{project}/stats/filter/readstat.{data}_R2.log"
     conda:
         "envs/khmer.yaml"
     threads: 1
@@ -131,9 +187,9 @@ rule readstat_reverse:
 
 rule readstat_reverse_merge:
     input:
-        expand("{project}/stats/reverse/readstat.{data}.csv", project=config['project'], data=config["data"])
+        expand("{project}/stats/filter/readstat.{data}_R2.csv", project=config['project'], data=config["data"])
     output:
-        protected("{project}/stats/readstat_R2.csv")
+        protected("{project}/stats/readstat_filter_R2.csv")
     shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
 
 
@@ -200,20 +256,29 @@ rule readstat_mergepairs:
     input:
         fasta = "{project}/mergepairs/{data}.fasta"
     output:
-        temporary("{project}/stats/readstat.{data}.csv")
+        readstats = temporary("{project}/stats/mergepairs/readstat_mergepairs.{data}.csv"),
+        readcount =  temporary("{project}/stats/mergepairs/readcount_mergepairs.{data}.csv")
+    params:
+        sample="{data}"
     log:
-        "{project}/stats/readstat.{data}.log"
+        "{project}/stats/readstat_mergepairs.{data}.log"
     conda:
         "envs/khmer.yaml"
     threads: 1
-    shell: "readstats.py {input} --csv -o {output} 2> {log}"
+    shell: """
+      readstats.py {input} --csv -o {output.readstats} 2> {log}
+      printf "%s\t" {params.sample} > {output.readcount}
+      tail -n +2 {output.readstats} | cut -d, -f 2 >> {output.readcount}
+      """
 
-rule readstat_all:
+rule readstat_mergepairs_merge:
     input:
-        expand("{project}/stats/readstat.{data}.csv", project=config['project'], data=config["data"])
+        expand("{project}/stats/mergepairs/readcount_mergepairs.{data}.csv", project=config['project'], data=config["data"])
     output:
-        protected("{project}/stats/readstat.csv")
-    shell: "cat {input[0]} | head -n 1 > {output} && for file in {input}; do tail -n +2 $file >> {output}; done;"
+        protected("{project}/stats/readstat_mergepairs.csv")
+    shell: """ echo "#SampleID\tmerged" > {output}
+               cat {input} >> {output}"""
+
 
 if config['mergepairs'] == 'vsearch':
     rule vsearch_merge:
@@ -728,12 +793,19 @@ rule workflow_graph:
     conda: "envs/rulegraph.yaml"
     shell: "snakemake --rulegraph | dot -Tsvg > {output}"
 
+rule combine_readcount:
+    input:
+        "{project}/stats/readstat_raw.csv",
+        "{project}/stats/readstat_filter_R1.csv",
+        "{project}/stats/readstat_mergepairs.csv"
+    output:
+        "{project}/stats/readcount.csv"
+    shell: "paste -d '\\t' {input} | cut -f 1,2,4,6 > {output}"
 
 rule report:
     input:
         workflow =  "{project}/report/workflow.svg",
-        readstat = "{project}/stats/readstat.csv",
-        readstat_reverse = "{project}/stats/readstat_R2.csv",
+        readstat = "{project}/stats/readcount.csv",
         biom = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.biom", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
         otutable = expand("{{project}}/{prog}/{ds}.minsize{minsize}.{clmethod}.taxonomy.otutable.txt", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
         otus= expand("{{project}}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta", prog=["vsearch"],ds=config['project'],minsize=2,clmethod=config['clustering']),
