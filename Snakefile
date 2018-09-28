@@ -305,7 +305,7 @@ if config['its'] == True:
             params:
                     basename="{project}/itsx/{data}",
                     dir="{project}/itsx"
-            log: "itsx.log"
+            log: "{project}/itsx/itsx{data}.log"
             threads: 32
             conda: "envs/itsx.yaml"
             # TODO: Filter on specific list of organisms? 
