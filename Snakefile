@@ -488,7 +488,7 @@ arb_pt_server -build -DSILVA_132_SSURef_NR99_13_12_17_opt.arb.index.arb
         threads: 24
         # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
         conda: "envs/sina.yaml"
-        shell: "cat {input.fasta} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {output.log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --ptdb {input.arb} --overhang remove --turn all --search --search-db {input.arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv || true"
+        shell: "cat {input.fasta} | parallel --block 1000K -j{threads} --recstart '>' --pipe sina --log-file {output.log} -i /dev/stdin --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --db {input.arb} --overhang remove --turn all --search --search-db {input.arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv || true"
 
     rule sina_get_taxonomy:
         input:
