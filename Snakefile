@@ -310,7 +310,7 @@ if config['its'] == True:
             conda: "envs/itsx.yaml"
             # TODO: Filter on specific list of organisms? 
             # Only ITS2 region?
-            shell: "ITSx --cpu {threads} --preserve TRUE -i {input.fasta} -o {params.basename} > {params.dir}/{log}"
+            shell: "ITSx --cpu {threads} --preserve TRUE -i {input.fasta} -o {params.basename} 2> {log}"
 
 # Combine per sample files to a single project file
 rule mergefiles:
