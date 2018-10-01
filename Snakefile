@@ -301,7 +301,7 @@ if config['its'] == True:
             input:
                     fasta="{project}/mergepairs/{data}.fasta"
             output:
-                    fasta=temporary("{project}/itsx/{data}.ITS2.fasta")
+                    fasta="{project}/itsx/{data}.ITS1.fasta" if config['its_region'] == 'ITS1' else "{project}/itsx/{data}.ITS2.fasta" if config['its_region'] == 'ITS2' else "{project}/itsx/{data}.full.fasta"
             params:
                     basename="{project}/itsx/{data}",
                     dir="{project}/itsx"
@@ -315,7 +315,7 @@ if config['its'] == True:
 # Combine per sample files to a single project file
 rule mergefiles:
     input:
-        fasta = expand(PROJECT + "itsx/{data}.ITS2.fasta", data=config["data"]) if config['its'] \
+        fasta = expand(rules.extract_its.output, data=config["data"], project=config['project']) if config['its'] \
                 else expand(PROJECT + "mergepairs/{data}.fasta", data=config["data"]),
     output: 
         fasta=temporary("{project}/mergefiles/{project}.fasta")
