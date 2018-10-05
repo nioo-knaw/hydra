@@ -15,7 +15,7 @@ output:
     toc_float:
       collapsed: no
       smooth_scroll: yes
-bibliography: hydra.bib
+bibliography: ../../hydra.bib
 link-citations: true
 ---
 # Hydra report for `r snakemake@config$project`
@@ -32,7 +32,7 @@ link-citations: true
 - Taxonomy: `r if (snakemake@config$classification == "sina") "aligning the sequences to the SILVA database (release 132) [@quast_silva_2013] using SINA [@pruesse_sina:_2012]" else if (snakemake@config$classification == "stampa") paste("aligning the sequences to the SILVA database (release 128) [@quast_silva_2013]. First the references sequences are trimmed with the forward (", snakemake@config$forward_primer, ") and reverse(", snakemake@config$reverse_primer, ") primer using cutadapt [@martin_cutadapt_2011]. Next, sequences are aligned using the usearch_global method implemented in vsearch. At last, the last common ancestor taxonomy is determined for the top hits using a python script provided by STAMPA [@mahe_stampa:_2017]") else if (snakemake@config$classification == "rdp") "running the RDP Classifier re-trained on the UNITE database release 7.2[@koljalg_towards_2013]" else if (snakemake@config$classification == "blast") paste("running BLASTN against the", snakemake@config$blast_db, "database and taking the least common ancestor of the top", snakemake@config$blast_max_hits, "hits.")`.
 
 ## Workflow overview
-![](`r snakemake@input$workflow`)
+![](`r paste(snakemake@scriptdir, snakemake@input$workflow, sep="/")`)
 
 ### Input files
 

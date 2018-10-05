@@ -2,9 +2,9 @@ from snakemake.utils import R
 from snakemake.utils import min_version
 import os
 
-#min_version("3.12") # R Markdown reports have been introduced in Snakemake 3.12
+min_version("5.3.0") # New location of script executoin for R Markdown report
 
-report: "report/workflow.rst"
+#report: "report/workflow.rst"
 
 if os.path.isfile("config.yaml"):
     configfile: "config.yaml"
