@@ -420,7 +420,8 @@ rule mapping:
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.uc"
     conda: "envs/vsearch.yaml"
-    shell: "vsearch -usearch_global {input.reads} -db {input.otus} -strand plus -id 0.97 -uc {output}"
+    threads: 32
+    shell: "vsearch -usearch_global {input.reads} -threads {threads} -db {input.otus} -strand plus -id 0.97 -uc {output}"
 
 rule create_otutable:
     input:
