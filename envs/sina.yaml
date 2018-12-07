@@ -2,6 +2,6 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - sina==1.3.5
+  - sina
   - parallel ==20160622
 

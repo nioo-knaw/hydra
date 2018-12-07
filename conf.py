@@ -156,7 +156,8 @@ def make_config(project,config,path,remote, rename, forward_primer, reverse_prim
         conf["remote"] = False
     conf["barcode_in_header"]  = False
 
-    conf["its"] = False 
+    conf["its"] = False
+    conf["its_region"] = "ITS2"
     conf["clustering"] =  clustering
     conf["classification"] = classification
     conf["use_full_lineage"] = False
