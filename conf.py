@@ -46,11 +46,12 @@ def get_sample_files(path, remote):
     if remote != None:
         walker = get_ena(remote)
     else:
-        walker = os.walk(path)
+        walker = os.walk(path, followlinks=True)
     for dir_name, sub_dirs, files in walker:
         for fname in files:
             if ".fastq" in fname or ".fq" in fname:
                 sample_id = fname.partition(".fastq")[0]
+
                 if ".fq" in sample_id:
                     sample_id = fname.partition(".fq")[0].replace("_","-")
 
@@ -61,7 +62,6 @@ def get_sample_files(path, remote):
 
                 fq_path = os.path.join(dir_name, fname)
                 fastq_paths = [fq_path]
-
                 if fq_path in seen: continue
 
                 if "_R1" in fname or "_r1" in fname or "_1" in fname:
