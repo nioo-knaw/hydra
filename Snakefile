@@ -481,26 +481,21 @@ arb_pt_server -build -DSILVA_132_SSURef_NR99_13_12_17_opt.arb.index.arb
             arm="SILVA_132_SSURef_NR99_13_12_17_opt.arb.index.ARM",
             arf="SILVA_132_SSURef_NR99_13_12_17_opt.arb.index.ARF"
         output:
-            #align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align",
-            #aligncsv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.{chunk}.align.csv",
-            log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log",
+            csv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.csv",
             align="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.align",
         priority: -1
         threads: 24
         # TODO: turn is set to all to get classification. Reverse the reads in earlier stage!
+        log: "{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
         conda: "envs/sina.yaml"
-        shell: "sina --log-file {output.log} -i {input.fasta} --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --db {input.arb} --overhang remove --turn all --search --search-db {input.arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv --num-pts 4 --threads {threads} || true"
+        shell: "sina --log-file {log} -i {input.fasta} --intype fasta -o {output.align} --outtype fasta --meta-fmt csv --db {input.arb} --overhang remove --turn all --search --search-db {input.arb} --search-min-sim 0.95 --search-no-fast --search-kmer-len 10 --lca-fields tax_slv --num-pts {threads} || true"
 
     rule sina_get_taxonomy:
         input:
-            log="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.log"
+            csv="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.csv"
         output:
             taxonomy="{project}/{prog}/sina/{ds}.minsize{minsize}.{clmethod}.sina.taxonomy.txt"
-        # Parse the log file from Sina to get the taxonomic classification
-        # The csv output does not contain the sequence identifier, thats way this approach is better
-        # The first space needs to be replaced in order to keep the space in the taxonomy string (would be splitted otherwise)
-        # Brackets are escaped by an extra bracket, because they are internaly recognised by Snakemake
-        shell: "cat {input.log} | sed 's/ /|/1' | awk -F '|'  '/^sequence_identifier:/ {{id=$2}} /^lca_tax_slv:/{{split(id,a,\" \"); print a[1] \"\t\" $2}}' | tr ' ' '_' > {output.taxonomy}"
+        shell: "tail -n +2 {input.csv} | cut -d, -f 1,10 | tr , '\\t' > {output.taxonomy}"
 
     # Tree
     rule filter_alignment:
