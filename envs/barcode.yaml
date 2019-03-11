@@ -1,7 +1,7 @@
 channels:
   - bioconda
 dependencies:
-  - bbmap
-  - qiime
-  - fastx_toolkit
-  - trimmomatic
+  - bbmap==38.22
+  - qiime==1.9.1
+  - fastx_toolkit==0.0.14
+  - trimmomatic==0.38

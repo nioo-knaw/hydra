@@ -1,5 +1,5 @@
 channels:
   - bioconda
 dependencies:
-  - cutadapt
-  - biopython
+  - cutadapt==2.0
+  - biopython==1.7.0

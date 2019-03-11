@@ -1,5 +1,5 @@
 channels:
   - bioconda
 dependencies:
-  - rdptools
+  - rdptools==2.0.2
 
