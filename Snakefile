@@ -411,6 +411,7 @@ rule make_otu_names:
         "{project}/{prog}/uchime/{ds}.minsize{minsize}.{clmethod}.fasta"
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.fasta"
+    conda: "envs/qiime.yaml"
     shell: "python2.7 uparse_scripts/fasta_number.py {input} OTU_ > {output}"
 
 rule mapping:
@@ -428,6 +429,7 @@ rule create_otutable:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.uc"
     output:
         "{project}/{prog}/otus/{ds}.minsize{minsize}.{clmethod}.otutable.txt"
+    conda: "envs/qiime.yaml"
     shell: "python2.7 uparse_scripts/uc2otutab.py {input} > {output}"
 
 # convert to biom file
