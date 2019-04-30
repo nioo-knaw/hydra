@@ -5,7 +5,7 @@ before_script:
   - conda config --add channels defaults
   - conda config --add channels r
   - conda config --add channels bioconda
-  - conda install snakemake click
+  - conda install snakemake==5.4.5 click==7.0
 
 stages:
     - rulegraph
