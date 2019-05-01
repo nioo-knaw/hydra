@@ -21,11 +21,11 @@ stages:
 run:
   stage: run
   script:
-    - python conf.py --project test --path tests/data --clustering usearch_smallmem --classification stampa --forward_primer CCTACGGGNGGCWGCAG --reverse_primer GACTACHVGGGTATCTAATCC --mergepairs vsearch --reference_db silva
+    - python conf.py --project test --path tests/data/miseq_sop/ --clustering usearch_smallmem --classification stampa --forward_primer CCTACGGGNGGCWGCAG --reverse_primer GACTACHVGGGTATCTAATCC --mergepairs vsearch --reference_db silva
     - snakemake  --use-conda -j 8
 
 sina:
   stage: sina
   script:
-    - python conf.py --project test --path tests/data --clustering usearch_smallmem --classification sina --forward_primer CCTACGGGNGGCWGCAG --reverse_primer GACTACHVGGGTATCTAATCC --mergepairs vsearch --reference_db silva
+    - python conf.py --project test --path tests/data/miseq_sop/ --clustering usearch_smallmem --classification sina --forward_primer CCTACGGGNGGCWGCAG --reverse_primer GACTACHVGGGTATCTAATCC --mergepairs vsearch --reference_db silva
     - snakemake  --use-conda -j 8

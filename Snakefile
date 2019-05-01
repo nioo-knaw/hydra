@@ -121,7 +121,7 @@ rule contaminants_stats:
     input: expand("{project}/stats/{data}_contaminants_stats.txt",  project=config['project'], data=config["data"])
     output: 
         "{project}/stats/contaminants.txt"
-    shell: "grep '#' -v {input} | tr ':' '\t' > {output}"
+    shell: "grep '#' -v {input} | tr ':' '\t' > {output} || true"
 
 if config["barcode_in_header"]: 
     rule remove_barcodes:
