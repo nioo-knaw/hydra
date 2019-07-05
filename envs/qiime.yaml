@@ -1,7 +1,7 @@
 channels:
   - conda-forge
   - bioconda
-  - anaconda
+  - https://repo.anaconda.com/pkgs/free/
 dependencies:
   - python ==2.7.12
   - qiime ==1.9.1
