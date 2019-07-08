@@ -23,6 +23,7 @@ stages:
 run:
   stage: run
   script:
+    - snakemake --cleanup-conda
     - python conf.py --project test --path tests/data/miseq_sop/ --clustering usearch_smallmem --classification stampa --forward_primer CCTACGGGNGGCWGCAG --reverse_primer GACTACHVGGGTATCTAATCC --mergepairs vsearch --reference_db silva
     - snakemake  --use-conda -j 8
 
